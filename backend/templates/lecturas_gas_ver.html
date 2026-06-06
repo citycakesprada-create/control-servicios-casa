@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Ver Lecturas Gas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>🔥 Lecturas de Gas Registradas</h1>
+
+        <div class="lista">
+            <table class="tabla-cobros">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Apartamento</th>
+                        <th>Lectura anterior</th>
+                        <th>Lectura actual</th>
+                        <th>Consumo</th>
+                        {% if session.usuario_admin %}
+                        <th>Editar</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in lecturas %}
+                    <tr>
+                        <td>{{ l.fecha }}</td>
+                        <td>{{ l.numero }}</td>
+                        <td>{{ l.lectura_anterior }}</td>
+                        <td>{{ l.lectura_actual }}</td>
+                        <td>{{ l.consumo_mes }} m³</td>
+                        {% if session.usuario_admin %}
+                        <td>
+                            <a href="/editar_lectura_gas/{{ l.id }}" class="btn-editar">
+                                ✏️ Editar
+                            </a>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <br>
+        <a href="/">← Volver al inicio</a>
+    </div>
+</body>
+</html>

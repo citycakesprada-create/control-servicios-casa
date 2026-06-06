@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Taller Pablo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>🏭 Taller Pablo</h1>
+
+        {% if recibo and taller %}
+
+        <div class="lista" style="margin-bottom: 30px;">
+            <h2>Mes actual — {{ recibo.fecha }}</h2>
+
+            <div class="tarjeta-taller">
+                <div class="fila-taller">
+                    <span>📄 Consumo recibo</span>
+                    <span>{{ taller.consumo_recibo }} kWh</span>
+                </div>
+                <div class="fila-taller">
+                    <span>🏢 Consumo apartamentos</span>
+                    <span>{{ taller.consumo_aptos }} kWh</span>
+                </div>
+                <div class="separador"></div>
+
+                {% if taller.consumo_taller > 0 %}
+                <div class="fila-taller total-taller">
+                    <span>🏭 Consumo taller</span>
+                    <span>{{ taller.consumo_taller }} kWh</span>
+                </div>
+                <div class="fila-taller total-taller">
+                    <span>💰 Valor taller</span>
+                    <span>${{ "{:,.0f}".format(taller.valor_taller) }}</span>
+                </div>
+                {% else %}
+                <div class="alerta-error">
+                    ⚠️ El consumo de apartamentos ({{ taller.consumo_aptos }} kWh) 
+                    supera el recibo ({{ taller.consumo_recibo }} kWh). 
+                    Revisar lecturas.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if historial %}
+        <div class="lista">
+            <h2>📋 Historial Taller</h2>
+            <table class="tabla-cobros">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Consumo taller</th>
+                        <th>Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in historial %}
+                    <tr>
+                        <td>{{ h.fecha }}</td>
+                        <td>{{ h.consumo_taller }} kWh</td>
+                        <td class="total">${{ "{:,.0f}".format(h.valor_taller) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% else %}
+            <div class="alerta-error">⚠️ No hay recibo registrado.</div>
+        {% endif %}
+
+        <br>
+        <a href="/">← Volver al inicio</a>
+    </div>
+</body>
+</html>

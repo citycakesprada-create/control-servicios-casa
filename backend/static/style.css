@@ -1,0 +1,317 @@
+body{
+    margin:0;
+    padding:0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: linear-gradient(
+        rgba(24, 10, 174, 0.7),
+        rgba(25, 84, 144, 0.7)
+    ),
+    url("https://images.unsplash.com/photo-1512917774080-9991f1c4c750");
+
+    background-size: cover;
+    background-position: center;
+    min-height: 100vh;
+    color: white;
+}
+
+.contenedor{
+    width: 80%;
+    margin: auto;
+    padding-top: 50px;
+}
+
+h1{
+    font-size: 50px;
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+h2{
+    font-size: 30px;
+    margin-bottom: 20px;
+}
+
+.lista{
+    background: rgba(255,255,255,0.1);
+    padding: 30px;
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+}
+
+.lista ul{
+    list-style: none;
+    padding: 0;
+}
+
+.lista li{
+    padding: 15px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 10px;
+    font-size: 22px;
+    transition: 0.3s;
+}
+
+.lista li:hover{
+    background: rgba(255,255,255,0.3);
+    transform: scale(1.02);
+}
+.campo {
+    margin-bottom: 20px;
+}
+.campo label {
+    display: block;
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+.campo input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    font-size: 16px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+button {
+    padding: 15px 40px;
+    background: white;
+    color: rgb(41, 13, 153);
+    border: none;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+button:hover {
+    background: rgba(255,255,255,0.8);
+    transform: scale(1.05);
+}
+.alerta-ok {
+    background: rgba(0,200,0,0.3);
+    padding: 15px;
+    border-radius: 10px;
+    font-size: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+a {
+    color: white;
+    font-size: 18px;
+}
+.info-recibo {
+    background: rgba(255,255,255,0.15);
+    padding: 15px;
+    border-radius: 10px;
+    font-size: 18px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+.alerta-error {
+    background: rgba(41, 11, 148, 0.4);
+    padding: 15px;
+    border-radius: 10px;
+    font-size: 18px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+.lectura-anterior {
+    font-size: 14px;
+    color: rgba(255,255,255,0.7);
+    margin: 5px 0 8px 0;
+}
+.tabla-cobros {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 18px;
+}
+.tabla-cobros th {
+    background: rgba(255,255,255,0.2);
+    padding: 12px;
+    text-align: left;
+}
+.tabla-cobros td {
+    padding: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.tabla-cobros tr:hover {
+    background: rgba(255,255,255,0.1);
+}
+.total {
+    font-weight: bold;
+    font-size: 20px;
+    color: #ffff99;
+}
+.menu {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+}
+.btn-menu {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    text-decoration: none;
+    padding: 20px 35px;
+    border-radius: 15px;
+    font-size: 20px;
+    font-weight: bold;
+    transition: 0.3s;
+    backdrop-filter: blur(5px);
+    border: 2px solid rgba(255,255,255,0.3);
+}
+.btn-menu:hover {
+    background: rgba(255,255,255,0.3);
+    transform: scale(1.05);
+}
+.btn-whatsapp {
+    background: #25D366;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 16px;
+    transition: 0.3s;
+}
+.btn-whatsapp:hover {
+    background: #128C7E;
+    transform: scale(1.05);
+}
+.btn-editar {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 16px;
+    transition: 0.3s;
+    border: 1px solid rgba(255,255,255,0.4);
+}
+.btn-editar:hover {
+    background: rgba(255,255,255,0.4);
+    transform: scale(1.05);
+}
+.tarjeta-taller {
+    background: rgba(255,255,255,0.1);
+    border-radius: 15px;
+    padding: 25px;
+}
+.fila-taller {
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.total-taller {
+    font-weight: bold;
+    font-size: 22px;
+    color: #ffff99;
+}
+.separador {
+    border-top: 2px solid rgba(255,255,255,0.3);
+    margin: 10px 0;
+}
+
+.modulos {
+    width: 100%;
+    margin-bottom: 10px;
+}
+.modulo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255,255,255,0.15);
+    padding: 20px 30px;
+    border-radius: 15px;
+    font-size: 22px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 5px;
+    transition: 0.3s;
+    border: 2px solid rgba(255,255,255,0.3);
+}
+.modulo:hover {
+    background: rgba(255,255,255,0.25);
+}
+.flecha {
+    font-size: 18px;
+}
+.submenu {
+    display: none;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 15px 20px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 0 0 15px 15px;
+    margin-bottom: 10px;
+}
+.btn-sub {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    text-decoration: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 16px;
+    transition: 0.3s;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+.btn-sub:hover {
+    background: rgba(255,255,255,0.3);
+    transform: scale(1.05);
+}
+
+/* --- ESTILOS RESPONSIVOS PARA MÓVILES --- */
+@media (max-width: 768px) {
+    .contenedor {
+        width: 92%;
+        padding-top: 20px;
+    }
+    h1 {
+        font-size: 32px;
+        margin-bottom: 25px;
+    }
+    h2 {
+        font-size: 24px;
+    }
+    .btn-menu, .modulo {
+        font-size: 18px;
+        padding: 15px 20px;
+    }
+    .lista {
+        padding: 15px;
+        border-radius: 12px;
+        overflow-x: auto; /* Permite scroll horizontal en tablas y contenido que desborde */
+    }
+    .lista li {
+        font-size: 16px;
+        padding: 10px;
+    }
+    .campo label {
+        font-size: 16px;
+    }
+    .campo input {
+        padding: 10px;
+        font-size: 14px;
+    }
+    button {
+        padding: 12px 30px;
+        font-size: 16px;
+        width: 100%; /* Botón completo para facilitar clic en táctil */
+    }
+    .tabla-cobros {
+        font-size: 14px;
+    }
+    .tabla-cobros th, .tabla-cobros td {
+        padding: 8px;
+    }
+    .btn-whatsapp, .btn-editar {
+        padding: 6px 10px;
+        font-size: 13px;
+    }
+    .fila-taller {
+        font-size: 16px;
+    }
+}

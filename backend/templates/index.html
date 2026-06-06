@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Control Servicios Casa</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <!-- BARRA DE SESION -->
+        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; gap: 15px;">
+            {% if session.usuario_admin %}
+                <span style="font-size: 18px; font-weight: bold; color: #ffff99;">👋 Hola, Admin</span>
+                <a href="/admin/apartamentos" class="btn-editar" style="font-size: 14px; padding: 6px 12px; border-color: rgba(255, 255, 255, 0.4);">🏢 Inquilinos</a>
+                <a href="/logout" class="btn-editar" style="background: rgba(220, 53, 69, 0.4); border-color: rgba(220, 53, 69, 0.6); font-size: 14px; padding: 6px 12px;">🚪 Salir</a>
+            {% else %}
+                <a href="/login" class="btn-editar" style="font-size: 14px; padding: 6px 12px; border-color: rgba(255, 255, 255, 0.4);">🔑 Entrar como Admin</a>
+            {% endif %}
+        </div>
+
+        <h1>🏠 CONTROL SERVICIOS CASA</h1>
+
+        <div class="modulos">
+
+            <!-- LUZ -->
+            <div class="modulo" onclick="toggle('luz')">
+                <span>💡 LUZ</span>
+                <span class="flecha" id="flecha-luz">▼</span>
+            </div>
+            <div class="submenu" id="luz">
+                {% if session.usuario_admin %}
+                <a href="/recibo" class="btn-sub">📄 Ingresar Recibo</a>
+                <a href="/lecturas" class="btn-sub">⚡ Ingresar Lecturas</a>
+                {% endif %}
+                <a href="/cobros" class="btn-sub">💰 Ver Cobros</a>
+                <a href="/historial" class="btn-sub">📋 Historial</a>
+                <a href="/lecturas_ver" class="btn-sub">📝 Ver Lecturas</a>
+            </div>
+
+            <!-- GAS -->
+            <div class="modulo" onclick="toggle('gas')">
+                <span>🔥 GAS</span>
+                <span class="flecha" id="flecha-gas">▼</span>
+            </div>
+            <div class="submenu" id="gas">
+                {% if session.usuario_admin %}
+                <a href="/recibo_gas" class="btn-sub">📄 Ingresar Recibo</a>
+                <a href="/lecturas_gas" class="btn-sub">🔥 Ingresar Lecturas</a>
+                {% endif %}
+                <a href="/cobros_gas" class="btn-sub">💰 Ver Cobros</a>
+                <a href="/lecturas_gas_ver" class="btn-sub">📝 Ver Lecturas</a>
+            </div>
+
+            <!-- AGUA -->
+            <div class="modulo" onclick="toggle('agua')">
+                <span>💧 AGUA</span>
+                <span class="flecha" id="flecha-agua">▼</span>
+            </div>
+            <div class="submenu" id="agua">
+                {% if session.usuario_admin %}
+                <a href="/recibo_agua" class="btn-sub">📄 Ingresar Recibo</a>
+                <a href="/lecturas_agua" class="btn-sub">💧 Ingresar Lecturas</a>
+                {% endif %}
+                <a href="/cobros_agua" class="btn-sub">💰 Ver Cobros</a>
+            </div>
+
+        </div>
+
+        <!-- BOTONES GENERALES -->
+        <div class="menu" style="margin-top:30px;">
+            <a href="/estadisticas" class="btn-menu">📊 Estadisticas</a>
+            <a href="/taller" class="btn-menu">🏭 Taller Pablo</a>
+        </div>
+
+        <!-- APARTAMENTOS -->
+        <div class="lista" style="margin-top:30px;">
+            <h2>Apartamentos</h2>
+            <ul>
+                {% for apartamento in apartamentos %}
+                    <li>🏢 Apartamento {{ apartamento.numero }} — {{ apartamento.nombre_inquilino }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+    </div>
+
+    <script>
+        function toggle(id) {
+            const submenu = document.getElementById(id);
+            const flecha = document.getElementById('flecha-' + id);
+            
+            if (submenu.style.display === 'flex') {
+                submenu.style.display = 'none';
+                flecha.textContent = '▼';
+            } else {
+                submenu.style.display = 'flex';
+                flecha.textContent = '▲';
+            }
+        }
+    </script>
+</body>
+</html>

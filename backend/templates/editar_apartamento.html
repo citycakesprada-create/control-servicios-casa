@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Editar Apartamento</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor" style="max-width: 500px; margin: auto;">
+        <h1>✏️ Editar Apartamento {{ apartamento.numero }}</h1>
+
+        <div class="lista">
+            <form method="POST">
+                <div class="campo">
+                    <label for="numero">Número de Apartamento</label>
+                    <input type="text" id="numero" name="numero" value="{{ apartamento.numero }}" required>
+                </div>
+                <div class="campo">
+                    <label for="nombre_inquilino">Nombre del Inquilino</label>
+                    <input type="text" id="nombre_inquilino" name="nombre_inquilino" value="{{ apartamento.nombre_inquilino }}" required>
+                </div>
+                <div class="campo">
+                    <label for="telefono">Teléfono / Celular</label>
+                    <input type="text" id="telefono" name="telefono" value="{{ apartamento.telefono }}" required>
+                </div>
+                <div style="text-align: center; margin-top: 25px; display: flex; gap: 15px; justify-content: center;">
+                    <button type="submit">Guardar Cambios</button>
+                    <a href="/admin/apartamentos" class="btn-editar" style="padding: 13px 30px; font-weight: bold; line-height: 1.2;">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

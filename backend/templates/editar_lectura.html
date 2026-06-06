@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Editar Lectura</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>✏️ Editar Lectura</h1>
+
+        <div class="lista">
+            <form method="POST">
+                <div class="campo">
+                    <label>🏢 Apartamento {{ lectura.numero }}</label>
+                </div>
+                <div class="campo">
+                    <label>Lectura anterior</label>
+                    <input type="number" name="lectura_anterior" 
+                    value="{{ lectura.lectura_anterior }}">
+                </div>
+                <div class="campo">
+                    <label>Lectura actual</label>
+                    <input type="number" name="lectura_actual" 
+                           value="{{ lectura.lectura_actual }}" required>
+                </div>
+                <button type="submit">Guardar cambios</button>
+            </form>
+        </div>
+
+        <br>
+        <a href="/lecturas_ver">← Volver a lecturas</a>
+    </div>
+</body>
+</html>

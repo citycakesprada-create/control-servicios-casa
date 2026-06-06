@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Estadisticas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>📊 Estadisticas de Consumo</h1>
+
+        <div class="lista">
+            <table class="tabla-cobros">
+                <thead>
+                    <tr>
+                        <th>Apartamento</th>
+                        <th>Inquilino</th>
+                        <th>Promedio</th>
+                        <th>Max</th>
+                        <th>Min</th>
+                        <th>Ultimo mes</th>
+                        <th>Tendencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in stats %}
+                    <tr>
+                        <td>{{ s.numero }}</td>
+                        <td>{{ s.nombre }}</td>
+                        <td>{{ s.promedio }} kWh</td>
+                        <td>{{ s.maximo }} kWh</td>
+                        <td>{{ s.minimo }} kWh</td>
+                        <td>{{ s.ultimo }} kWh</td>
+                        <td class="tendencia-{{ s.tendencia }}">
+                            {% if s.tendencia == "subio" %}
+                                📈 Subio {{ s.diferencia }} kWh
+                            {% elif s.tendencia == "bajo" %}
+                                📉 Bajo {{ s.diferencia|abs }} kWh
+                            {% else %}
+                                ➡️ Igual
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <br>
+        <a href="/">← Volver al inicio</a>
+    </div>
+</body>
+</html>

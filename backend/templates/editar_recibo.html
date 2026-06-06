@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Modificar Recibo de Luz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor" style="max-width: 600px; margin: auto;">
+        <h1>✏️ Modificar Recibo de Luz</h1>
+        <h2 style="text-align: center;">Fecha del Recibo: {{ recibo.fecha }}</h2>
+
+        <div class="lista">
+            <form method="POST">
+                <div class="campo">
+                    <label for="fecha">Fecha Facturación</label>
+                    <input type="date" id="fecha" name="fecha" value="{{ recibo.fecha }}" required>
+                </div>
+                <div class="campo">
+                    <label for="energia_facturada">Energía Facturada Total (kWh)</label>
+                    <input type="number" id="energia_facturada" name="energia_facturada" value="{{ recibo.energia_facturada }}" required>
+                </div>
+                <div class="campo">
+                    <label for="valor_kwh">Valor Unitario kWh ($)</label>
+                    <input type="number" step="0.0001" id="valor_kwh" name="valor_kwh" value="{{ recibo.valor_kwh }}" required>
+                </div>
+                <div class="campo">
+                    <label for="valor_energia">Valor Energía Total ($)</label>
+                    <input type="number" step="0.01" id="valor_energia" name="valor_energia" value="{{ recibo.valor_energia }}" required>
+                </div>
+                <div class="campo">
+                    <label for="valor_aseo">Valor Aseo Total ($)</label>
+                    <input type="number" step="0.01" id="valor_aseo" name="valor_aseo" value="{{ recibo.valor_aseo }}" required>
+                </div>
+                <div class="campo">
+                    <label for="observaciones">Observaciones</label>
+                    <input type="text" id="observaciones" name="observaciones" value="{{ recibo.observaciones or '' }}">
+                </div>
+                
+                <div style="text-align: center; margin-top: 25px; display: flex; gap: 15px; justify-content: center;">
+                    <button type="submit">Guardar y Recalcular</button>
+                    <a href="/cobros/{{ recibo.id }}" class="btn-editar" style="padding: 13px 30px; font-weight: bold; line-height: 1.2;">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

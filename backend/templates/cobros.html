@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Cobros del Mes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>💰 Cobros del Mes</h1>
+
+        {% if recibo %}
+        <div class="info-recibo">
+            📄 Recibo: {{ recibo.fecha }} — 
+            {{ recibo.energia_facturada }} kWh — 
+            ${{ recibo.valor_kwh }}/kWh
+        </div>
+
+        {% if session.usuario_admin %}
+        <div style="text-align: center; margin-bottom: 20px;">
+            <a href="/admin/editar_recibo/{{ recibo.id }}" class="btn-editar">✏️ Modificar Recibo/Tarifas</a>
+        </div>
+        {% endif %}
+
+        <div class="lista">
+            <table class="tabla-cobros">
+                <thead>
+                    <tr>
+                        <th>Apartamento</th>
+                        <th>Inquilino</th>
+                        <th>Consumo (kWh)</th>
+                        <th>Energía</th>
+                        <th>Aseo</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cobros %}
+                    <tr>
+                        <td>{{ c.numero }}</td>
+                        <td>{{ c.nombre }}</td>
+                        <td>{{ c.consumo }}</td>
+                        <td>${{ "{:,.0f}".format(c.valor_energia) }}</td>
+                        <td>${{ "{:,.0f}".format(c.valor_aseo) }}</td>
+                        <td class="total">${{ "{:,.0f}".format(c.total) }}</td>
+                        <td>
+                             <a href="/whatsapp/{{ c.apartamento_id }}" 
+                             target="_blank" 
+                             class="btn-whatsapp">
+                             📱 WhatsApp
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="alerta-error">⚠️ No hay recibo registrado.</div>
+        {% endif %}
+
+        <br>
+        <a href="/">← Volver al inicio</a>
+    </div>
+</body>
+</html>

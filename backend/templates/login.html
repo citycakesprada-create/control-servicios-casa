@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Iniciar Sesión - Control Servicios</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor" style="max-width: 450px; margin: auto; padding-top: 100px;">
+        <h1 style="font-size: 36px; margin-bottom: 30px;">🔑 Iniciar Sesión</h1>
+        
+        {% if error %}
+            <div class="alerta-error">⚠️ {{ error }}</div>
+        {% endif %}
+        
+        <div class="lista">
+            <form method="POST">
+                <div class="campo">
+                    <label for="usuario">Usuario</label>
+                    <input type="text" id="usuario" name="usuario" required autocomplete="username">
+                </div>
+                <div class="campo">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                <div style="text-align: center; margin-top: 25px;">
+                    <button type="submit">Entrar</button>
+                </div>
+            </form>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/">← Volver al Inicio</a>
+        </div>
+    </div>
+</body>
+</html>

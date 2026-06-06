@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Cobros Gas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>🔥 Cobros de Gas</h1>
+
+        {% if recibo %} 
+        <div style="display:flex; gap:15px; justify-content:center; margin-bottom:20px;">
+    <a href="/cobros_gas?grupo=1" 
+    class="btn-sub" style="{% if grupo_actual == 1 %}background:rgba(255,255,255,0.4){% endif %}">
+        🔥 Grupo 1 (101, 401, 402, 501)
+    </a>
+    <a href="/cobros_gas?grupo=2"
+       class="btn-sub" style="{% if grupo_actual == 2 %}background:rgba(255,255,255,0.4){% endif %}">
+        🔥 Grupo 2 (201, 202, 301, 302)
+     </a>
+    </div>
+        
+        <div class="info-recibo">
+            📄 Recibo: {{ recibo.fecha }} — Grupo {{ recibo.grupo }} —
+            ${{ recibo.valor_m3 }}/m³
+        </div>
+        
+        {% if session.usuario_admin %}
+        <div style="text-align: center; margin-bottom: 20px;">
+            <a href="/admin/editar_recibo_gas/{{ recibo.id }}" class="btn-editar">✏️ Modificar Recibo/Tarifas</a>
+        </div>
+        {% endif %}
+        
+
+        <div class="lista">
+            <table class="tabla-cobros">
+                <thead>
+                    <tr>
+                        <th>Apartamento</th>
+                        <th>Inquilino</th>
+                        <th>Consumo (m³)</th>
+                        <th>Total</th>
+                        <th>WhatsApp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cobros %}
+                    <tr>
+                        <td>{{ c.numero }}</td>
+                        <td>{{ c.nombre }}</td>
+                        <td>{{ c.consumo }}</td>
+                        <td class="total">${{ "{:,.0f}".format(c.valor_gas) }}</td>
+                        <td>
+                            <a href="/whatsapp_gas/{{ c.apartamento_id }}"
+                               target="_blank"
+                               class="btn-whatsapp">
+                                WhatsApp
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="alerta-error">⚠️ No hay recibo registrado.</div>
+        {% endif %}
+
+        <br>
+        <a href="/">← Volver al inicio</a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Ingresar Lecturas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>⚡ Lecturas del Mes</h1>
+
+        {% if recibo %}
+            <div class="info-recibo">
+                📄 Recibo: {{ recibo.fecha }} — 
+                {{ recibo.energia_facturada }} kWh — 
+                ${{ recibo.valor_kwh }}/kWh
+            </div>
+        {% else %}
+            <div class="alerta-error">⚠️ Aún no hay recibo — puedes igual ingresar las lecturas.</div>
+        {% endif %}
+
+        {% if guardado %}
+            <div class="alerta-ok">✅ Lecturas guardadas correctamente</div>
+        {% endif %}
+
+        <div class="lista">
+            <form method="POST">
+                <div class="campo">
+                    <label>📅 Fecha de lectura</label>
+                    <input type="date" name="fecha_lectura" required>
+                </div>
+                {% for a in apartamentos %}
+                <div class="campo">
+                    <label>🏢 Apartamento {{ a.numero }} — {{ a.nombre_inquilino }}</label>
+                    <p class="lectura-anterior">Lectura anterior: {{ ultimas[a.id] }}</p>
+                    <input type="number" 
+                           name="lectura_{{ a.id }}" 
+                           placeholder="Lectura actual" 
+                           required>
+                </div>
+                {% endfor %}
+                <button type="submit">Guardar lecturas</button>
+            </form>
+        </div>
+
+        <br>
+        <a href="/">← Volver al inicio</a>
+    </div>
+</body>
+</html>

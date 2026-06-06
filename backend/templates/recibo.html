@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Ingresar Recibo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>📄 Ingresar Recibo de Luz</h1>
+
+        {% if guardado %}
+            <div class="alerta-ok">✅ Recibo guardado correctamente</div>
+        {% endif %}
+
+        <div class="lista">
+            <form method="POST">
+                <div class="campo">
+                    <label>Fecha del recibo</label>
+                    <input type="date" name="fecha" required>
+                </div>
+                <div class="campo">
+                    <label>kWh facturados (consumo total)</label>
+                    <input type="number" name="energia_facturada" required>
+                </div>
+                <div class="campo">
+                    <label>Valor por kWh ($)</label>
+                    <input type="number" step="0.0001" name="valor_kwh" required>
+                </div>
+                <div class="campo">
+                    <label>Valor energía total ($)</label>
+                    <input type="number" step="0.01" name="valor_energia" required>
+                </div>
+                <div class="campo">
+                    <label>Valor aseo ($)</label>
+                    <input type="number" step="0.01" name="valor_aseo" required>
+                </div>
+                <div class="campo">
+                    <label>Observaciones</label>
+                    <input type="text" name="observaciones">
+                </div>
+                <button type="submit">Guardar recibo</button>
+            </form>
+        </div>
+
+        <br>
+        <a href="/">← Volver al inicio</a>
+    </div>
+</body>
+</html>

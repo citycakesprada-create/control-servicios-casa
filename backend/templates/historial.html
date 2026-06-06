@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Historial</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>📋 Historial de Cobros</h1>
+
+        {% if recibos %}
+        <div class="lista">
+            <table class="tabla-cobros">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>kWh facturados</th>
+                        <th>Valor kWh</th>
+                        <th>Total recaudado</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in recibos %}
+                    <tr>
+                        <td>{{ r.fecha }}</td>
+                        <td>{{ r.energia_facturada }} kWh</td>
+                        <td>${{ "{:,.0f}".format(r.valor_kwh) }}</td>
+                        <td class="total">
+                            {% if r.total_mes %}
+                                ${{ "{:,.0f}".format(r.total_mes) }}
+                            {% else %}
+                                Sin cobros
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/cobros/{{ r.id }}" class="btn-whatsapp">
+                                🔍 Ver cobros
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="alerta-error">⚠️ No hay historial registrado aún.</div>
+        {% endif %}
+
+        <br>
+        <a href="/">← Volver al inicio</a>
+    </div>
+</body>
+</html>

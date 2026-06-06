@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Lecturas Gas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>🔥 Lecturas de Gas</h1>
+
+        {% if recibo %}
+            <div class="info-recibo">
+                📄 Recibo: {{ recibo.fecha }} — Grupo {{ recibo.grupo }} —
+                ${{ recibo.valor_m3 }}/m³
+            </div>
+        {% else %}
+            <div class="alerta-error">⚠️ Aun no hay recibo — puedes igual ingresar las lecturas.</div>
+        {% endif %}
+
+        {% if guardado %}
+            <div class="alerta-ok">✅ Lecturas guardadas correctamente</div>
+        {% endif %}
+
+    <div style="display:flex; gap:15px; justify-content:center; margin-bottom:20px;">
+        <a href="/lecturas_gas?grupo=1" 
+        class="btn-sub" style="{% if grupo_actual == 1 %}background:rgba(255,255,255,0.4){% endif %}">
+        🔥 Grupo 1 (101, 401, 402, 501)
+    </a>
+    <a href="/lecturas_gas?grupo=2"
+    class="btn-sub" style="{% if grupo_actual == 2 %}background:rgba(255,255,255,0.4){% endif %}">
+    🔥 Grupo 2 (201, 202, 301, 302)
+</a>
+</div>
+
+        <div class="lista">
+            <form method="POST">
+                <div class="campo">
+                    <label>Fecha de lectura</label>
+                    <input type="date" name="fecha_lectura" required>
+                </div>
+                <div class="campo">
+                <label>Grupo</label>
+                <select name="grupo_sel" onchange="this.form.submit()" 
+                style="width:100%; padding:12px; border-radius:10px; font-size:16px; background:rgba(255,255,255,0.2); color:white; border:none;">
+                <option value="1" {% if grupo_actual == 1 %}selected{% endif %}>Grupo 1 (101, 401, 402, 501)</option>
+                <option value="2" {% if grupo_actual == 2 %}selected{% endif %}>Grupo 2 (201, 202, 301, 302)</option>
+             </select>
+            </div>
+                {% for a in apartamentos %}
+                <div class="campo">
+                    <label>🏢 Apartamento {{ a.numero }} — {{ a.nombre_inquilino }}</label>
+                    <p class="lectura-anterior">Lectura anterior: {{ ultimas[a.id] }}</p>
+                    <input type="number"
+                           name="lectura_{{ a.id }}"
+                           placeholder="Lectura actual"
+                           required>
+                </div>
+                {% endfor %}
+                <button type="submit">Guardar lecturas</button>
+            </form>
+        </div>
+
+        <br>
+        <a href="/">← Volver al inicio</a>
+    </div>
+</body>
+</html>
