@@ -6,11 +6,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = "clave_secreta_super_segura_para_servicios_casa"
 
-# Crear tabla de administradores y usuario por defecto si no existen
+# Crear tablas necesarias y usuario por defecto si no existen
 def inicializar_db():
     try:
         con = conectar()
         cursor = con.cursor()
+        
+        # Administradores
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS administradores (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -18,6 +20,45 @@ def inicializar_db():
                 password VARCHAR(255) NOT NULL
             )
         """)
+        
+        # Recibos Agua
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recibos_agua (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                fecha DATE NOT NULL,
+                consumo_total INT NOT NULL,
+                valor_total DECIMAL(12,2) NOT NULL,
+                valor_m3 DECIMAL(12,2) NOT NULL,
+                observaciones TEXT NULL
+            )
+        """)
+        
+        # Lecturas Agua
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS lecturas_agua (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                apartamento_id INT NOT NULL,
+                fecha DATE NOT NULL,
+                lectura_anterior INT NOT NULL DEFAULT 0,
+                lectura_actual INT NOT NULL,
+                consumo_mes INT NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Cobros Agua
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cobros_agua (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                apartamento_id INT NOT NULL,
+                recibo_id INT NOT NULL,
+                consumo INT NOT NULL,
+                valor_agua DECIMAL(12,2) NOT NULL,
+                total DECIMAL(12,2) NOT NULL,
+                fecha_generacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
         cursor.execute("SELECT id FROM administradores WHERE usuario = 'admin'")
         if not cursor.fetchone():
             hashed_pw = generate_password_hash("admin123")
@@ -923,6 +964,309 @@ def editar_recibo_gas(recibo_id):
         
     con.close()
     return render_template("editar_recibo_gas.html", recibo=recibo)
+
+# ==================== MODULO DE AGUA ====================
+
+@app.route("/recibo_agua", methods=["GET", "POST"])
+def recibo_agua():
+    if not es_admin():
+        return redirect("/login")
+    if request.method == "POST":
+        fecha = request.form["fecha"]
+        consumo_total = request.form["consumo_total"]
+        valor_total = request.form["valor_total"]
+        valor_m3 = request.form["valor_m3"]
+        observaciones = request.form.get("observaciones", "")
+
+        con = conectar()
+        cursor = con.cursor()
+        cursor.execute("""
+            INSERT INTO recibos_agua 
+            (fecha, consumo_total, valor_total, valor_m3, observaciones)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (fecha, consumo_total, valor_total, valor_m3, observaciones))
+        con.commit()
+        con.close()
+        return render_template("recibo_agua.html", guardado=True)
+
+    return render_template("recibo_agua.html", guardado=False)
+
+@app.route("/lecturas_agua", methods=["GET", "POST"])
+def lecturas_agua():
+    if not es_admin():
+        return redirect("/login")
+    con = conectar()
+    cursor = con.cursor()
+
+    cursor.execute("SELECT * FROM recibos_agua ORDER BY fecha DESC LIMIT 1")
+    recibo = cursor.fetchone()
+
+    cursor.execute("SELECT * FROM apartamentos ORDER BY numero")
+    apartamentos = cursor.fetchall()
+
+    ultimas = {}
+    for a in apartamentos:
+        cursor.execute("""
+            SELECT lectura_actual FROM lecturas_agua 
+            WHERE apartamento_id = %s 
+            ORDER BY fecha DESC LIMIT 1
+        """, (a["id"],))
+        ultima = cursor.fetchone()
+        ultimas[a["id"]] = ultima["lectura_actual"] if ultima else 0
+
+    if request.method == "POST":
+        fecha = request.form.get("fecha_lectura")
+        for a in apartamentos:
+            lectura_actual = int(request.form[f"lectura_{a['id']}"])
+            lectura_anterior = ultimas[a["id"]]
+            consumo = lectura_actual - lectura_anterior
+
+            cursor.execute("""
+                INSERT INTO lecturas_agua 
+                (apartamento_id, lectura_anterior, fecha, lectura_actual, consumo_mes)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (a["id"], lectura_anterior, fecha, lectura_actual, consumo))
+
+        con.commit()
+        con.close()
+        return render_template("lecturas_agua.html",
+                               apartamentos=apartamentos,
+                               ultimas=ultimas,
+                               recibo=recibo,
+                               guardado=True)
+
+    con.close()
+    return render_template("lecturas_agua.html",
+                           apartamentos=apartamentos,
+                           ultimas=ultimas,
+                           recibo=recibo,
+                           guardado=False)
+
+@app.route("/cobros_agua")
+def cobros_agua():
+    con = conectar()
+    cursor = con.cursor()
+
+    cursor.execute("SELECT * FROM recibos_agua ORDER BY fecha DESC LIMIT 1")
+    recibo = cursor.fetchone()
+
+    if not recibo:
+        con.close()
+        return render_template("cobros_agua.html", cobros=[], recibo=None)
+
+    cursor.execute("""
+        SELECT l.*, a.numero, a.nombre_inquilino, a.id as apartamento_id
+        FROM lecturas_agua l
+        JOIN apartamentos a ON l.apartamento_id = a.id
+        WHERE l.fecha = %s
+        ORDER BY a.numero
+    """, (recibo["fecha"],))
+    lecturas = cursor.fetchall()
+
+    cursor.execute("SELECT id FROM cobros_agua WHERE recibo_id = %s LIMIT 1", (recibo["id"],))
+    ya_calculado = cursor.fetchone()
+
+    cobros_lista = []
+    for l in lecturas:
+        valor_agua = round(l["consumo_mes"] * float(recibo["valor_m3"]), 2)
+
+        cobros_lista.append({
+            "numero": l["numero"],
+            "nombre": l["nombre_inquilino"],
+            "consumo": l["consumo_mes"],
+            "valor_agua": valor_agua,
+            "apartamento_id": l["apartamento_id"]
+        })
+
+        if not ya_calculado:
+            cursor.execute("""
+                INSERT INTO cobros_agua
+                (apartamento_id, recibo_id, consumo, valor_agua, total)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (l["apartamento_id"], recibo["id"], l["consumo_mes"],
+                  valor_agua, valor_agua))
+
+    if not ya_calculado:
+        con.commit()
+    con.close()
+
+    return render_template("cobros_agua.html", cobros=cobros_lista, recibo=recibo)
+
+@app.route("/cobros_agua/<int:recibo_id>")
+def cobros_agua_mes(recibo_id):
+    con = conectar()
+    cursor = con.cursor()
+
+    cursor.execute("SELECT * FROM recibos_agua WHERE id = %s", (recibo_id,))
+    recibo = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT c.*, a.numero, a.nombre_inquilino, a.id as apartamento_id
+        FROM cobros_agua c
+        JOIN apartamentos a ON c.apartamento_id = a.id
+        WHERE c.recibo_id = %s
+        ORDER BY a.numero
+    """, (recibo_id,))
+    cobros = cursor.fetchall()
+    con.close()
+
+    return render_template("cobros_agua.html", cobros=cobros, recibo=recibo)
+
+@app.route("/lecturas_agua_ver")
+def lecturas_agua_ver():
+    con = conectar()
+    cursor = con.cursor()
+    cursor.execute("""
+        SELECT l.*, a.numero, a.nombre_inquilino
+        FROM lecturas_agua l
+        JOIN apartamentos a ON l.apartamento_id = a.id
+        ORDER BY l.fecha DESC, a.numero
+    """)
+    lecturas = cursor.fetchall()
+    con.close()
+    return render_template("lecturas_agua_ver.html", lecturas=lecturas)
+
+@app.route("/editar_lectura_agua/<int:lectura_id>", methods=["GET", "POST"])
+def editar_lectura_agua(lectura_id):
+    if not es_admin():
+        return redirect("/login")
+    con = conectar()
+    cursor = con.cursor()
+
+    cursor.execute("""
+        SELECT l.*, a.numero FROM lecturas_agua l
+        JOIN apartamentos a ON l.apartamento_id = a.id
+        WHERE l.id = %s
+    """, (lectura_id,))
+    lectura = cursor.fetchone()
+
+    if request.method == "POST":
+        lectura_actual = int(request.form["lectura_actual"])
+        lectura_anterior = int(request.form["lectura_anterior"])
+        consumo = lectura_actual - lectura_anterior
+
+        cursor.execute("""
+            UPDATE lecturas_agua 
+            SET lectura_anterior = %s, lectura_actual = %s, consumo_mes = %s
+            WHERE id = %s
+        """, (lectura_anterior, lectura_actual, consumo, lectura_id))
+
+        # Recalcular cobro si existe
+        cursor.execute("""
+            SELECT c.id, r.valor_m3
+            FROM cobros_agua c
+            JOIN recibos_agua r ON c.recibo_id = r.id
+            WHERE c.apartamento_id = %s
+            ORDER BY r.fecha DESC LIMIT 1
+        """, (lectura["apartamento_id"],))
+        cobro = cursor.fetchone()
+
+        if cobro:
+            valor_agua = round(consumo * float(cobro["valor_m3"]), 2)
+            cursor.execute("""
+                UPDATE cobros_agua
+                SET consumo = %s, valor_agua = %s, total = %s
+                WHERE id = %s
+            """, (consumo, valor_agua, valor_agua, cobro["id"]))
+
+        con.commit()
+        con.close()
+        return redirect("/lecturas_agua_ver")
+
+    con.close()
+    return render_template("editar_lectura_agua.html", lectura=lectura)
+
+@app.route("/whatsapp_agua/<int:apartamento_id>")
+def whatsapp_agua(apartamento_id):
+    con = conectar()
+    cursor = con.cursor()
+
+    cursor.execute("SELECT * FROM apartamentos WHERE id = %s", (apartamento_id,))
+    apto = cursor.fetchone()
+
+    cursor.execute("""
+        SELECT c.*, r.fecha 
+        FROM cobros_agua c
+        JOIN recibos_agua r ON c.recibo_id = r.id
+        WHERE c.apartamento_id = %s
+        ORDER BY r.fecha DESC LIMIT 1
+    """, (apartamento_id,))
+    cobro = cursor.fetchone()
+    con.close()
+
+    if not cobro or not apto:
+        return "No hay datos", 404
+
+    mensaje = f"""Hola,
+
+Apartamento {apto['numero']}
+
+Consumo agua: {cobro['consumo']} m³
+Total a pagar: ${int(cobro['total']):,}
+
+Gracias."""
+
+    telefono = apto['telefono'].replace("+", "").replace(" ", "")
+    url_whatsapp = f"https://wa.me/{telefono}?text={quote(mensaje)}"
+    return redirect(url_whatsapp)
+
+@app.route("/admin/editar_recibo_agua/<int:recibo_id>", methods=["GET", "POST"])
+def editar_recibo_agua(recibo_id):
+    if not es_admin():
+        return redirect("/login")
+        
+    con = conectar()
+    cursor = con.cursor()
+    
+    cursor.execute("SELECT * FROM recibos_agua WHERE id = %s", (recibo_id,))
+    recibo = cursor.fetchone()
+    
+    if request.method == "POST":
+        fecha = request.form["fecha"]
+        consumo_total = int(request.form["consumo_total"])
+        valor_total = float(request.form["valor_total"])
+        valor_m3 = float(request.form["valor_m3"])
+        observaciones = request.form.get("observaciones", "")
+        
+        # Update recibo
+        cursor.execute("""
+            UPDATE recibos_agua
+            SET fecha = %s, consumo_total = %s, valor_total = %s, valor_m3 = %s, observaciones = %s
+            WHERE id = %s
+        """, (fecha, consumo_total, valor_total, valor_m3, observaciones, recibo_id))
+        
+        # Recalculate cobros
+        cursor.execute("""
+            SELECT l.*, a.id as apartamento_id
+            FROM lecturas_agua l
+            JOIN apartamentos a ON l.apartamento_id = a.id
+            WHERE l.fecha = %s
+        """, (fecha,))
+        lecturas = cursor.fetchall()
+        
+        for l in lecturas:
+            val_agua = round(l["consumo_mes"] * valor_m3, 2)
+            
+            cursor.execute("SELECT id FROM cobros_agua WHERE apartamento_id = %s AND recibo_id = %s", (l["apartamento_id"], recibo_id))
+            cobro = cursor.fetchone()
+            if cobro:
+                cursor.execute("""
+                    UPDATE cobros_agua
+                    SET consumo = %s, valor_agua = %s, total = %s
+                    WHERE id = %s
+                """, (l["consumo_mes"], val_agua, val_agua, cobro["id"]))
+            else:
+                cursor.execute("""
+                    INSERT INTO cobros_agua (apartamento_id, recibo_id, consumo, valor_agua, total)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (l["apartamento_id"], recibo_id, l["consumo_mes"], val_agua, val_agua))
+                
+        con.commit()
+        con.close()
+        return redirect("/cobros_agua")
+        
+    con.close()
+    return render_template("editar_recibo_agua.html", recibo=recibo)
 
 if __name__ == "__main__":
     app.run(debug=True)

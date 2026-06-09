@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Lectura Agua</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor" style="max-width: 500px; margin: auto;">
+        <h1>✏️ Editar Lectura Agua</h1>
+        <h2 style="text-align: center;">Apartamento {{ lectura.numero }}</h2>
+
+        <div class="lista">
+            <form method="POST">
+                <div class="campo">
+                    <label for="lectura_anterior">Lectura Anterior</label>
+                    <input type="number" id="lectura_anterior" name="lectura_anterior" value="{{ lectura.lectura_anterior }}" required>
+                </div>
+                <div class="campo">
+                    <label for="lectura_actual">Lectura Actual</label>
+                    <input type="number" id="lectura_actual" name="lectura_actual" value="{{ lectura.lectura_actual }}" required>
+                </div>
+                <div style="text-align: center; margin-top: 25px; display: flex; gap: 15px; justify-content: center;">
+                    <button type="submit">Guardar Cambios</button>
+                    <a href="/lecturas_agua_ver" class="btn-editar" style="padding: 13px 30px; font-weight: bold; line-height: 1.2;">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

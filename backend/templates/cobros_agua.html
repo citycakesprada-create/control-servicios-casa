@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cobros del Agua</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>💧 Cobros de Agua del Mes</h1>
+
+        {% if recibo %}
+        <div class="info-recibo">
+            📄 Recibo: {{ recibo.fecha }} — Consumo total facturado: {{ recibo.consumo_total }} m³ — Tarifa: ${{ recibo.valor_m3 }}/m³
+        </div>
+
+        {% if session.usuario_admin %}
+        <div style="text-align: center; margin-bottom: 20px;">
+            <a href="/admin/editar_recibo_agua/{{ recibo.id }}" class="btn-editar">✏️ Modificar Recibo/Tarifas</a>
+        </div>
+        {% endif %}
+
+        <div class="lista">
+            <table class="tabla-cobros">
+                <thead>
+                    <tr>
+                        <th>Apartamento</th>
+                        <th>Inquilino</th>
+                        <th>Consumo (m³)</th>
+                        <th>Total a Pagar</th>
+                        <th>Enviar Cobro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cobros %}
+                    <tr>
+                        <td>{{ c.numero }}</td>
+                        <td>{{ c.nombre }}</td>
+                        <td>{{ c.consumo }}</td>
+                        <td class="total">${{ "{:,.0f}".format(c.valor_agua) }}</td>
+                        <td>
+                            <a href="/whatsapp_agua/{{ c.apartamento_id }}"
+                               target="_blank"
+                               class="btn-whatsapp">
+                                📱 WhatsApp
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="alerta-error">⚠️ No hay recibo registrado de Agua.</div>
+        {% endif %}
+
+        <br>
+        <a href="/">← Volver al inicio</a>
+    </div>
+</body>
+</html>

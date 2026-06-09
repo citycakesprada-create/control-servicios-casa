@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingresar Lecturas Agua</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor" style="max-width: 600px; margin: auto;">
+        <h1>💧 Ingresar Lecturas de Agua</h1>
+
+        {% if recibo %}
+            <div class="info-recibo">
+                📄 Recibo Activo: {{ recibo.fecha }} — Tarifa: ${{ recibo.valor_m3 }}/m³
+            </div>
+        {% else %}
+            <div class="alerta-error">⚠️ No hay un recibo de agua registrado para este mes. Por favor, registre primero el recibo general.</div>
+        {% endif %}
+
+        {% if guardado %}
+            <div class="alerta-ok">✅ Lecturas guardadas exitosamente.</div>
+        {% endif %}
+
+        {% if recibo %}
+        <div class="lista">
+            <form method="POST">
+                <div class="campo">
+                    <label for="fecha_lectura">Fecha de Lectura</label>
+                    <input type="date" id="fecha_lectura" name="fecha_lectura" value="{{ recibo.fecha }}" required>
+                </div>
+
+                <h2 style="font-size: 22px; margin: 25px 0 15px 0; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px;">Apartamentos</h2>
+
+                {% for a in apartamentos %}
+                <div class="campo" style="margin-bottom: 25px;">
+                    <label for="lectura_{{ a.id }}">🏢 Apartamento {{ a.numero }} — {{ a.nombre_inquilino }}</label>
+                    <input type="number" id="lectura_{{ a.id }}" name="lectura_{{ a.id }}" required placeholder="Lectura actual del medidor">
+                    <div class="lectura-anterior">
+                        Lectura anterior registrada: <strong>{{ ultimas[a.id] }} m³</strong>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button type="submit">Guardar Lecturas</button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/">← Volver al Inicio</a>
+        </div>
+    </div>
+</body>
+</html>

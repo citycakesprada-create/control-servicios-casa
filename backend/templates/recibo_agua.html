@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingresar Recibo de Agua</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="contenedor" style="max-width: 550px; margin: auto;">
+        <h1>💧 Registrar Recibo de Agua</h1>
+
+        {% if guardado %}
+            <div class="alerta-ok">✅ Recibo guardado exitosamente.</div>
+        {% endif %}
+
+        <div class="lista">
+            <form method="POST">
+                <div class="campo">
+                    <label for="fecha">Fecha Facturación</label>
+                    <input type="date" id="fecha" name="fecha" required>
+                </div>
+                <div class="campo">
+                    <label for="consumo_total">Consumo Total Facturado (m³)</label>
+                    <input type="number" id="consumo_total" name="consumo_total" required placeholder="Ej: 48">
+                </div>
+                <div class="campo">
+                    <label for="valor_total">Valor Total Facturado ($)</label>
+                    <input type="number" step="0.01" id="valor_total" name="valor_total" required placeholder="Ej: 96000">
+                </div>
+                <div class="campo">
+                    <label for="valor_m3">Valor Unitario m³ ($)</label>
+                    <input type="number" step="0.01" id="valor_m3" name="valor_m3" required placeholder="Ej: 2000">
+                </div>
+                <div class="campo">
+                    <label for="observaciones">Observaciones (Opcional)</label>
+                    <input type="text" id="observaciones" name="observaciones" placeholder="Cualquier nota adicional">
+                </div>
+
+                <div style="text-align: center; margin-top: 25px;">
+                    <button type="submit">Guardar Recibo</button>
+                </div>
+            </form>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/">← Volver al Inicio</a>
+        </div>
+    </div>
+</body>
+</html>
