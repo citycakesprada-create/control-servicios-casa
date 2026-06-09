@@ -998,9 +998,6 @@ def lecturas_agua():
     con = conectar()
     cursor = con.cursor()
 
-    cursor.execute("SELECT * FROM recibos_agua ORDER BY fecha DESC LIMIT 1")
-    recibo = cursor.fetchone()
-
     cursor.execute("SELECT * FROM apartamentos ORDER BY numero")
     apartamentos = cursor.fetchall()
 
@@ -1032,14 +1029,12 @@ def lecturas_agua():
         return render_template("lecturas_agua.html",
                                apartamentos=apartamentos,
                                ultimas=ultimas,
-                               recibo=recibo,
                                guardado=True)
 
     con.close()
     return render_template("lecturas_agua.html",
                            apartamentos=apartamentos,
                            ultimas=ultimas,
-                           recibo=recibo,
                            guardado=False)
 
 @app.route("/cobros_agua")

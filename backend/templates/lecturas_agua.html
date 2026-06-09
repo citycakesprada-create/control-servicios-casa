@@ -10,24 +10,15 @@
     <div class="contenedor" style="max-width: 600px; margin: auto;">
         <h1>💧 Ingresar Lecturas de Agua</h1>
 
-        {% if recibo %}
-            <div class="info-recibo">
-                📄 Recibo Activo: {{ recibo.fecha }} — Tarifa: ${{ recibo.valor_m3 }}/m³
-            </div>
-        {% else %}
-            <div class="alerta-error">⚠️ No hay un recibo de agua registrado para este mes. Por favor, registre primero el recibo general.</div>
-        {% endif %}
-
         {% if guardado %}
             <div class="alerta-ok">✅ Lecturas guardadas exitosamente.</div>
         {% endif %}
 
-        {% if recibo %}
         <div class="lista">
             <form method="POST">
                 <div class="campo">
                     <label for="fecha_lectura">Fecha de Lectura</label>
-                    <input type="date" id="fecha_lectura" name="fecha_lectura" value="{{ recibo.fecha }}" required>
+                    <input type="date" id="fecha_lectura" name="fecha_lectura" required>
                 </div>
 
                 <h2 style="font-size: 22px; margin: 25px 0 15px 0; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px;">Apartamentos</h2>
@@ -47,7 +38,6 @@
                 </div>
             </form>
         </div>
-        {% endif %}
 
         <div style="text-align: center; margin-top: 20px;">
             <a href="/">← Volver al Inicio</a>
