@@ -59,11 +59,18 @@ def inicializar_db():
             )
         """)
         
-        cursor.execute("SELECT id FROM administradores WHERE usuario = 'admin'")
+        cursor.execute("SELECT id FROM administradores WHERE usuario = 'marlen'")
         if not cursor.fetchone():
-            hashed_pw = generate_password_hash("admin123")
-            cursor.execute("INSERT INTO administradores (usuario, password) VALUES (%s, %s)", ("admin", hashed_pw))
+            hashed_pw = generate_password_hash("casa123")
+            cursor.execute("INSERT INTO administradores (usuario, password) VALUES ('marlen', %s)", (hashed_pw,))
             con.commit()
+
+        cursor.execute("SELECT id FROM administradores WHERE usuario = 'demo'")
+        if not cursor.fetchone():
+            hashed_pw_demo = generate_password_hash("demo123")
+            cursor.execute("INSERT INTO administradores (usuario, password) VALUES ('demo', %s)", (hashed_pw_demo,))
+            con.commit()
+
         con.close()
     except Exception as e:
         print("Error al inicializar la base de datos:", e)
@@ -71,13 +78,15 @@ def inicializar_db():
 inicializar_db()
 
 def es_admin():
-    return "usuario_admin" in session
+    return "usuario_admin" in session and "admin_id" in session
 
 @app.route("/")
 def inicio():
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
-    cursor.execute("SELECT * FROM apartamentos ORDER BY numero")
+    cursor.execute("SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY numero", (session["admin_id"],))
     apartamentos = cursor.fetchall()
     con.close()
     return render_template("index.html", apartamentos=apartamentos)
@@ -97,9 +106,9 @@ def recibo():
         con = conectar()
         cursor = con.cursor()
         sql = """INSERT INTO recibos_luz 
-                 (fecha, energia_facturada, valor_kwh, valor_energia, valor_aseo, observaciones)
-                 VALUES (%s, %s, %s, %s, %s, %s)"""
-        cursor.execute(sql, (fecha, energia_facturada, valor_kwh, valor_energia, valor_aseo, observaciones))
+                 (fecha, energia_facturada, valor_kwh, valor_energia, valor_aseo, observaciones, administrador_id)
+                 VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+        cursor.execute(sql, (fecha, energia_facturada, valor_kwh, valor_energia, valor_aseo, observaciones, session["admin_id"]))
         con.commit()
         con.close()
         return render_template("recibo.html", guardado=True)
@@ -113,10 +122,10 @@ def lecturas():
     con = conectar()
     cursor = con.cursor()
 
-    cursor.execute("SELECT * FROM recibos_luz ORDER BY fecha DESC LIMIT 1")
+    cursor.execute("SELECT * FROM recibos_luz WHERE administrador_id = %s ORDER BY fecha DESC LIMIT 1", (session["admin_id"],))
     recibo = cursor.fetchone()
 
-    cursor.execute("SELECT * FROM apartamentos ORDER BY numero")
+    cursor.execute("SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY numero", (session["admin_id"],))
     apartamentos = cursor.fetchall()
 
     ultimas = {}
@@ -159,10 +168,12 @@ def lecturas():
 
 @app.route("/cobros")
 def cobros():
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
 
-    cursor.execute("SELECT * FROM recibos_luz ORDER BY fecha DESC LIMIT 1")
+    cursor.execute("SELECT * FROM recibos_luz WHERE administrador_id = %s ORDER BY fecha DESC LIMIT 1", (session["admin_id"],))
     recibo = cursor.fetchone()
 
     if not recibo:
@@ -173,9 +184,9 @@ def cobros():
         SELECT l.*, a.numero, a.nombre_inquilino, a.id as apartamento_id
         FROM lecturas_luz l
         JOIN apartamentos a ON l.apartamento_id = a.id
-        WHERE l.fecha = %s
+        WHERE l.fecha = %s AND a.administrador_id = %s
         ORDER BY a.numero
-    """, (recibo["fecha"],))
+    """, (recibo["fecha"], session["admin_id"]))
     lecturas = cursor.fetchall()
 
     cursor.execute("SELECT id FROM cobros_luz WHERE recibo_id = %s LIMIT 1", (recibo["id"],))
@@ -252,6 +263,8 @@ Gracias."""
 
 @app.route("/historial")
 def historial():
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
 
@@ -261,9 +274,10 @@ def historial():
                COUNT(c.id) as num_cobros
         FROM recibos_luz r
         LEFT JOIN cobros_luz c ON c.recibo_id = r.id
+        WHERE r.administrador_id = %s
         GROUP BY r.id
         ORDER BY r.fecha DESC
-    """)
+    """, (session["admin_id"],))
     recibos = cursor.fetchall()
     con.close()
 
@@ -271,19 +285,25 @@ def historial():
 
 @app.route("/cobros/<int:recibo_id>")
 def cobros_mes(recibo_id):
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
 
-    cursor.execute("SELECT * FROM recibos_luz WHERE id = %s", (recibo_id,))
+    cursor.execute("SELECT * FROM recibos_luz WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
     recibo = cursor.fetchone()
+
+    if not recibo:
+        con.close()
+        return "Recibo no encontrado o no tienes permisos", 403
 
     cursor.execute("""
         SELECT c.*, a.numero, a.nombre_inquilino, a.id as apartamento_id
         FROM cobros_luz c
         JOIN apartamentos a ON c.apartamento_id = a.id
-        WHERE c.recibo_id = %s
+        WHERE c.recibo_id = %s AND a.administrador_id = %s
         ORDER BY a.numero
-    """, (recibo_id,))
+    """, (recibo_id, session["admin_id"]))
     cobros = cursor.fetchall()
     con.close()
 
@@ -343,6 +363,8 @@ def editar_lectura(lectura_id):
     return render_template("editar_lectura.html", lectura=lectura)
 @app.route("/lecturas_ver")
 def lecturas_ver():
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
 
@@ -350,8 +372,9 @@ def lecturas_ver():
         SELECT l.*, a.numero, a.nombre_inquilino
         FROM lecturas_luz l
         JOIN apartamentos a ON l.apartamento_id = a.id
+        WHERE a.administrador_id = %s
         ORDER BY l.fecha DESC, a.numero
-    """)
+    """, (session["admin_id"],))
     lecturas = cursor.fetchall()
     con.close()
 
@@ -359,28 +382,30 @@ def lecturas_ver():
 
 @app.route("/taller")
 def taller():
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
 
-    # Recibo más reciente
-    cursor.execute("SELECT * FROM recibos_luz ORDER BY fecha DESC LIMIT 1")
+    # Recibo más reciente del administrador actual
+    cursor.execute("SELECT * FROM recibos_luz WHERE administrador_id = %s ORDER BY fecha DESC LIMIT 1", (session["admin_id"],))
     recibo = cursor.fetchone()
 
     if not recibo:
         con.close()
         return render_template("taller.html", recibo=None, taller=None)
 
-    # Sumar consumo total de apartamentos de ese mes
+    # Sumar consumo total de apartamentos de ese mes de este administrador
     cursor.execute("""
-        SELECT SUM(consumo_mes) as total_aptos
-        FROM lecturas_luz
-        WHERE fecha = %s
-    """, (recibo["fecha"],))
+        SELECT SUM(l.consumo_mes) as total_aptos
+        FROM lecturas_luz l
+        JOIN apartamentos a ON l.apartamento_id = a.id
+        WHERE l.fecha = %s AND a.administrador_id = %s
+    """, (recibo["fecha"], session["admin_id"]))
     resultado = cursor.fetchone()
     total_aptos = resultado["total_aptos"] or 0
 
     # Calcular taller
-    consumo_taller = recibo["energia_facturada"] - total_aptos
     consumo_taller = int(recibo["energia_facturada"]) - int(total_aptos)
     valor_taller = round(consumo_taller * float(recibo["valor_kwh"]), 2)
 
@@ -391,19 +416,20 @@ def taller():
     if not ya_guardado and consumo_taller > 0:
         cursor.execute("""
             INSERT INTO taller_luz 
-            (recibo_id, consumo_apartamentos, consumo_recibo, consumo_taller, valor_taller, fecha)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            (recibo_id, consumo_apartamentos, consumo_recibo, consumo_taller, valor_taller, fecha, administrador_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (recibo["id"], total_aptos, recibo["energia_facturada"], 
-              consumo_taller, valor_taller, recibo["fecha"]))
+              consumo_taller, valor_taller, recibo["fecha"], session["admin_id"]))
         con.commit()
 
-    # Traer historial taller
+    # Traer historial taller de este administrador
     cursor.execute("""
         SELECT t.*, r.valor_kwh 
         FROM taller_luz t
         JOIN recibos_luz r ON t.recibo_id = r.id
+        WHERE t.administrador_id = %s
         ORDER BY t.fecha DESC
-    """)
+    """, (session["admin_id"],))
     historial_taller = cursor.fetchall()
     con.close()
 
@@ -420,6 +446,8 @@ def taller():
     
 @app.route("/estadisticas")
 def estadisticas():
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
 
@@ -430,9 +458,10 @@ def estadisticas():
                MIN(l.consumo_mes) as minimo
         FROM lecturas_luz l
         JOIN apartamentos a ON l.apartamento_id = a.id
+        WHERE a.administrador_id = %s
         GROUP BY a.id, a.numero, a.nombre_inquilino
         ORDER BY a.numero
-    """)
+    """, (session["admin_id"],))
     promedios = cursor.fetchall()
 
     # Consumo último mes vs anterior
@@ -443,11 +472,12 @@ def estadisticas():
         FROM apartamentos a
         JOIN lecturas_luz l1 ON l1.apartamento_id = a.id
         JOIN lecturas_luz l2 ON l2.apartamento_id = a.id
-        WHERE l1.fecha = (SELECT MAX(fecha) FROM lecturas_luz)
+        WHERE a.administrador_id = %s
+        AND l1.fecha = (SELECT MAX(fecha) FROM lecturas_luz)
         AND l2.fecha = (SELECT MAX(fecha) FROM lecturas_luz 
                         WHERE fecha < (SELECT MAX(fecha) FROM lecturas_luz))
         ORDER BY a.numero
-    """)
+    """, (session["admin_id"],))
     comparacion = cursor.fetchall()
     con.close()
 
@@ -499,9 +529,9 @@ def recibo_gas():
         cursor = con.cursor()
         cursor.execute("""
             INSERT INTO recibos_gas 
-            (fecha, grupo, referencia, consumo_total, valor_total, valor_m3, observaciones)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (fecha, grupo, referencia, consumo_total, valor_total, valor_m3, observaciones))
+            (fecha, grupo, referencia, consumo_total, valor_total, valor_m3, observaciones, administrador_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (fecha, grupo, referencia, consumo_total, valor_total, valor_m3, observaciones, session["admin_id"]))
         con.commit()
         con.close()
         return render_template("recibo_gas.html", guardado=True)
@@ -545,12 +575,14 @@ Gracias."""
 
 @app.route("/cobros_gas")
 def cobros_gas():
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
 
     grupo_actual = int(request.args.get("grupo", 1))
 
-    cursor.execute("SELECT * FROM recibos_gas WHERE grupo = %s ORDER BY fecha DESC LIMIT 1", (grupo_actual,))
+    cursor.execute("SELECT * FROM recibos_gas WHERE grupo = %s AND administrador_id = %s ORDER BY fecha DESC LIMIT 1", (grupo_actual, session["admin_id"]))
     recibo = cursor.fetchone()
 
     if not recibo:
@@ -566,9 +598,9 @@ def cobros_gas():
         SELECT l.*, a.numero, a.nombre_inquilino, a.id as apartamento_id
         FROM lecturas_gas l
         JOIN apartamentos a ON l.apartamento_id = a.id
-        WHERE l.fecha = %s AND a.numero IN %s
+        WHERE l.fecha = %s AND a.numero IN %s AND a.administrador_id = %s
         ORDER BY a.numero
-    """, (recibo["fecha"], numeros))
+    """, (recibo["fecha"], numeros, session["admin_id"]))
     lecturas = cursor.fetchall()
 
     cursor.execute("SELECT id FROM cobros_gas WHERE recibo_id = %s LIMIT 1", (recibo["id"],))
@@ -631,14 +663,17 @@ def cobros_gas():
 
 @app.route("/lecturas_gas_ver")
 def lecturas_gas_ver():
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
     cursor.execute("""
         SELECT l.*, a.numero, a.nombre_inquilino
         FROM lecturas_gas l
         JOIN apartamentos a ON l.apartamento_id = a.id
+        WHERE a.administrador_id = %s
         ORDER BY l.fecha DESC, a.numero
-    """)
+    """, (session["admin_id"],))
     lecturas = cursor.fetchall()
     con.close()
     return render_template("lecturas_gas_ver.html", lecturas=lecturas)
@@ -655,14 +690,14 @@ def lecturas_gas():
         grupo_actual = int(request.form["grupo_sel"])
         return redirect(f"/lecturas_gas?grupo={grupo_actual}")
 
-    cursor.execute("SELECT * FROM recibos_gas WHERE grupo = %s ORDER BY fecha DESC LIMIT 1", (grupo_actual,))
+    cursor.execute("SELECT * FROM recibos_gas WHERE grupo = %s AND administrador_id = %s ORDER BY fecha DESC LIMIT 1", (grupo_actual, session["admin_id"]))
     recibo = cursor.fetchone()
 
     if grupo_actual == 1:
         numeros = ("101", "401", "402", "501")
     else:
         numeros = ("201", "202", "301", "302")
-    cursor.execute("SELECT * FROM apartamentos WHERE numero IN %s ORDER BY numero", (numeros,))
+    cursor.execute("SELECT * FROM apartamentos WHERE numero IN %s AND administrador_id = %s ORDER BY numero", (numeros, session["admin_id"]))
     apartamentos = cursor.fetchall()
 
     ultimas = {}
@@ -715,9 +750,13 @@ def editar_lectura_gas(lectura_id):
     cursor.execute("""
         SELECT l.*, a.numero FROM lecturas_gas l
         JOIN apartamentos a ON l.apartamento_id = a.id
-        WHERE l.id = %s
-    """, (lectura_id,))
+        WHERE l.id = %s AND a.administrador_id = %s
+    """, (lectura_id, session["admin_id"]))
     lectura = cursor.fetchone()
+
+    if not lectura:
+        con.close()
+        return "Lectura no encontrada o no tienes permisos", 403
 
     if request.method == "POST":
         lectura_actual = int(request.form["lectura_actual"])
@@ -769,6 +808,7 @@ def login():
         
         if admin_rec and check_password_hash(admin_rec["password"], password):
             session["usuario_admin"] = usuario
+            session["admin_id"] = admin_rec["id"]
             return redirect("/")
         else:
             error = "Usuario o contraseña incorrectos"
@@ -778,6 +818,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.pop("usuario_admin", None)
+    session.pop("admin_id", None)
     return redirect("/")
 
 @app.route("/admin/apartamentos", methods=["GET", "POST"])
@@ -794,12 +835,12 @@ def admin_apartamentos():
         telefono = request.form["telefono"]
         
         cursor.execute("""
-            INSERT INTO apartamentos (numero, nombre_inquilino, telefono)
-            VALUES (%s, %s, %s)
-        """, (numero, nombre, telefono))
+            INSERT INTO apartamentos (numero, nombre_inquilino, telefono, administrador_id)
+            VALUES (%s, %s, %s, %s)
+        """, (numero, nombre, telefono, session["admin_id"]))
         con.commit()
         
-    cursor.execute("SELECT * FROM apartamentos ORDER BY numero")
+    cursor.execute("SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY numero", (session["admin_id"],))
     apartamentos = cursor.fetchall()
     con.close()
     
@@ -813,6 +854,14 @@ def editar_apartamento(apto_id):
     con = conectar()
     cursor = con.cursor()
     
+    # Validar propiedad
+    cursor.execute("SELECT * FROM apartamentos WHERE id = %s AND administrador_id = %s", (apto_id, session["admin_id"]))
+    apto = cursor.fetchone()
+    
+    if not apto:
+        con.close()
+        return "Apartamento no encontrado o no tienes permisos", 403
+        
     if request.method == "POST":
         numero = request.form["numero"]
         nombre = request.form["nombre_inquilino"]
@@ -827,10 +876,7 @@ def editar_apartamento(apto_id):
         con.close()
         return redirect("/admin/apartamentos")
         
-    cursor.execute("SELECT * FROM apartamentos WHERE id = %s", (apto_id,))
-    apto = cursor.fetchone()
     con.close()
-    
     return render_template("editar_apartamento.html", apartamento=apto)
 
 @app.route("/admin/eliminar_apartamento/<int:apto_id>")
@@ -840,6 +886,13 @@ def eliminar_apartamento(apto_id):
         
     con = conectar()
     cursor = con.cursor()
+    
+    # Validar propiedad
+    cursor.execute("SELECT id FROM apartamentos WHERE id = %s AND administrador_id = %s", (apto_id, session["admin_id"]))
+    if not cursor.fetchone():
+        con.close()
+        return "Apartamento no encontrado o no tienes permisos", 403
+        
     cursor.execute("DELETE FROM apartamentos WHERE id = %s", (apto_id,))
     con.commit()
     con.close()
@@ -853,8 +906,12 @@ def editar_recibo(recibo_id):
     con = conectar()
     cursor = con.cursor()
     
-    cursor.execute("SELECT * FROM recibos_luz WHERE id = %s", (recibo_id,))
+    cursor.execute("SELECT * FROM recibos_luz WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
     recibo = cursor.fetchone()
+
+    if not recibo:
+        con.close()
+        return "Recibo no encontrado o no tienes permisos", 403
     
     if request.method == "POST":
         fecha = request.form["fecha"]
@@ -876,8 +933,8 @@ def editar_recibo(recibo_id):
             SELECT l.*, a.id as apartamento_id
             FROM lecturas_luz l
             JOIN apartamentos a ON l.apartamento_id = a.id
-            WHERE l.fecha = %s
-        """, (fecha,))
+            WHERE l.fecha = %s AND a.administrador_id = %s
+        """, (fecha, session["admin_id"]))
         lecturas = cursor.fetchall()
         
         valor_aseo_por_apto = round(valor_aseo / 8, 2)
@@ -900,7 +957,12 @@ def editar_recibo(recibo_id):
                 """, (l["apartamento_id"], recibo_id, l["consumo_mes"], val_energia, valor_aseo_por_apto, tot))
                 
         # Recalculate taller_luz
-        cursor.execute("SELECT SUM(consumo_mes) as total_aptos FROM lecturas_luz WHERE fecha = %s", (fecha,))
+        cursor.execute("""
+            SELECT SUM(l.consumo_mes) as total_aptos 
+            FROM lecturas_luz l
+            JOIN apartamentos a ON l.apartamento_id = a.id
+            WHERE l.fecha = %s AND a.administrador_id = %s
+        """, (fecha, session["admin_id"]))
         resultado = cursor.fetchone()
         total_aptos = resultado["total_aptos"] or 0
         
@@ -917,9 +979,9 @@ def editar_recibo(recibo_id):
             """, (total_aptos, energia_facturada, consumo_taller, valor_taller, fecha, taller["id"]))
         elif consumo_taller > 0:
             cursor.execute("""
-                INSERT INTO taller_luz (recibo_id, consumo_apartamentos, consumo_recibo, consumo_taller, valor_taller, fecha)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (recibo_id, total_aptos, energia_facturada, consumo_taller, valor_taller, fecha))
+                INSERT INTO taller_luz (recibo_id, consumo_apartamentos, consumo_recibo, consumo_taller, valor_taller, fecha, administrador_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (recibo_id, total_aptos, energia_facturada, consumo_taller, valor_taller, fecha, session["admin_id"]))
             
         con.commit()
         con.close()
@@ -936,8 +998,12 @@ def editar_recibo_gas(recibo_id):
     con = conectar()
     cursor = con.cursor()
     
-    cursor.execute("SELECT * FROM recibos_gas WHERE id = %s", (recibo_id,))
+    cursor.execute("SELECT * FROM recibos_gas WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
     recibo = cursor.fetchone()
+
+    if not recibo:
+        con.close()
+        return "Recibo no encontrado o no tienes permisos", 403
     
     if request.method == "POST":
         fecha = request.form["fecha"]
@@ -965,8 +1031,8 @@ def editar_recibo_gas(recibo_id):
             SELECT l.*, a.id as apartamento_id
             FROM lecturas_gas l
             JOIN apartamentos a ON l.apartamento_id = a.id
-            WHERE l.fecha = %s AND a.numero IN %s
-        """, (fecha, numeros))
+            WHERE l.fecha = %s AND a.numero IN %s AND a.administrador_id = %s
+        """, (fecha, numeros, session["admin_id"]))
         lecturas = cursor.fetchall()
         
         for l in lecturas:
@@ -1010,9 +1076,9 @@ def recibo_agua():
         cursor = con.cursor()
         cursor.execute("""
             INSERT INTO recibos_agua 
-            (fecha, consumo_total, valor_total, valor_m3, observaciones)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (fecha, consumo_total, valor_total, valor_m3, observaciones))
+            (fecha, consumo_total, valor_total, valor_m3, observaciones, administrador_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (fecha, consumo_total, valor_total, valor_m3, observaciones, session["admin_id"]))
         con.commit()
         con.close()
         return render_template("recibo_agua.html", guardado=True)
@@ -1026,7 +1092,7 @@ def lecturas_agua():
     con = conectar()
     cursor = con.cursor()
 
-    cursor.execute("SELECT * FROM apartamentos ORDER BY numero")
+    cursor.execute("SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY numero", (session["admin_id"],))
     apartamentos = cursor.fetchall()
 
     ultimas = {}
@@ -1067,10 +1133,12 @@ def lecturas_agua():
 
 @app.route("/cobros_agua")
 def cobros_agua():
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
 
-    cursor.execute("SELECT * FROM recibos_agua ORDER BY fecha DESC LIMIT 1")
+    cursor.execute("SELECT * FROM recibos_agua WHERE administrador_id = %s ORDER BY fecha DESC LIMIT 1", (session["admin_id"],))
     recibo = cursor.fetchone()
 
     if not recibo:
@@ -1081,9 +1149,9 @@ def cobros_agua():
         SELECT l.*, a.numero, a.nombre_inquilino, a.id as apartamento_id
         FROM lecturas_agua l
         JOIN apartamentos a ON l.apartamento_id = a.id
-        WHERE l.fecha = %s
+        WHERE l.fecha = %s AND a.administrador_id = %s
         ORDER BY a.numero
-    """, (recibo["fecha"],))
+    """, (recibo["fecha"], session["admin_id"]))
     lecturas = cursor.fetchall()
 
     cursor.execute("SELECT id FROM cobros_agua WHERE recibo_id = %s LIMIT 1", (recibo["id"],))
@@ -1144,19 +1212,25 @@ def cobros_agua():
 
 @app.route("/cobros_agua/<int:recibo_id>")
 def cobros_agua_mes(recibo_id):
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
 
-    cursor.execute("SELECT * FROM recibos_agua WHERE id = %s", (recibo_id,))
+    cursor.execute("SELECT * FROM recibos_agua WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
     recibo = cursor.fetchone()
+
+    if not recibo:
+        con.close()
+        return "Recibo no encontrado o no tienes permisos", 403
 
     cursor.execute("""
         SELECT c.*, a.numero, a.nombre_inquilino, a.id as apartamento_id
         FROM cobros_agua c
         JOIN apartamentos a ON c.apartamento_id = a.id
-        WHERE c.recibo_id = %s
+        WHERE c.recibo_id = %s AND a.administrador_id = %s
         ORDER BY a.numero
-    """, (recibo_id,))
+    """, (recibo_id, session["admin_id"]))
     cobros = cursor.fetchall()
     con.close()
 
@@ -1164,14 +1238,17 @@ def cobros_agua_mes(recibo_id):
 
 @app.route("/lecturas_agua_ver")
 def lecturas_agua_ver():
+    if not es_admin():
+        return redirect("/login")
     con = conectar()
     cursor = con.cursor()
     cursor.execute("""
         SELECT l.*, a.numero, a.nombre_inquilino
         FROM lecturas_agua l
         JOIN apartamentos a ON l.apartamento_id = a.id
+        WHERE a.administrador_id = %s
         ORDER BY l.fecha DESC, a.numero
-    """)
+    """, (session["admin_id"],))
     lecturas = cursor.fetchall()
     con.close()
     return render_template("lecturas_agua_ver.html", lecturas=lecturas)
@@ -1186,9 +1263,13 @@ def editar_lectura_agua(lectura_id):
     cursor.execute("""
         SELECT l.*, a.numero FROM lecturas_agua l
         JOIN apartamentos a ON l.apartamento_id = a.id
-        WHERE l.id = %s
-    """, (lectura_id,))
+        WHERE l.id = %s AND a.administrador_id = %s
+    """, (lectura_id, session["admin_id"]))
     lectura = cursor.fetchone()
+
+    if not lectura:
+        con.close()
+        return "Lectura no encontrada o no tienes permisos", 403
 
     if request.method == "POST":
         lectura_actual = int(request.form["lectura_actual"])
@@ -1206,9 +1287,9 @@ def editar_lectura_agua(lectura_id):
             SELECT c.id, r.valor_m3
             FROM cobros_agua c
             JOIN recibos_agua r ON c.recibo_id = r.id
-            WHERE c.apartamento_id = %s
+            WHERE c.apartamento_id = %s AND r.administrador_id = %s
             ORDER BY r.fecha DESC LIMIT 1
-        """, (lectura["apartamento_id"],))
+        """, (lectura["apartamento_id"], session["admin_id"]))
         cobro = cursor.fetchone()
 
         if cobro:
@@ -1268,8 +1349,12 @@ def editar_recibo_agua(recibo_id):
     con = conectar()
     cursor = con.cursor()
     
-    cursor.execute("SELECT * FROM recibos_agua WHERE id = %s", (recibo_id,))
+    cursor.execute("SELECT * FROM recibos_agua WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
     recibo = cursor.fetchone()
+
+    if not recibo:
+        con.close()
+        return "Recibo no encontrado o no tienes permisos", 403
     
     if request.method == "POST":
         fecha = request.form["fecha"]
@@ -1290,8 +1375,8 @@ def editar_recibo_agua(recibo_id):
             SELECT l.*, a.id as apartamento_id
             FROM lecturas_agua l
             JOIN apartamentos a ON l.apartamento_id = a.id
-            WHERE l.fecha = %s
-        """, (fecha,))
+            WHERE l.fecha = %s AND a.administrador_id = %s
+        """, (fecha, session["admin_id"]))
         lecturas = cursor.fetchall()
         
         for l in lecturas:
