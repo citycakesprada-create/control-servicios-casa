@@ -574,31 +574,59 @@ def cobros_gas():
     cursor.execute("SELECT id FROM cobros_gas WHERE recibo_id = %s LIMIT 1", (recibo["id"],))
     ya_calculado = cursor.fetchone()
 
+    # Paso 1: Calcular cobro base por consumo
     cobros_lista = []
+    consumo_total_aptos = 0
+    suma_base = 0
     for l in lecturas:
         valor_gas = round(l["consumo_mes"] * float(recibo["valor_m3"]), 2)
-
+        consumo_total_aptos += l["consumo_mes"]
+        suma_base += valor_gas
         cobros_lista.append({
             "numero": l["numero"],
             "nombre": l["nombre_inquilino"],
             "consumo": l["consumo_mes"],
+            "valor_gas_base": valor_gas,
             "valor_gas": valor_gas,
+            "ajuste": 0,
             "apartamento_id": l["apartamento_id"]
         })
 
-        if not ya_calculado:
+    # Paso 2: Calcular diferencia y repartir proporcionalmente
+    valor_total_recibo = float(recibo["valor_total"])
+    diferencia = round(valor_total_recibo - suma_base, 2)
+
+    if consumo_total_aptos > 0 and diferencia != 0:
+        for c in cobros_lista:
+            proporcion = c["consumo"] / consumo_total_aptos
+            ajuste = round(diferencia * proporcion, 2)
+            c["ajuste"] = ajuste
+            c["valor_gas"] = round(c["valor_gas_base"] + ajuste, 2)
+
+    # Guardar cobros en BD
+    if not ya_calculado and lecturas:
+        for c in cobros_lista:
             cursor.execute("""
                 INSERT INTO cobros_gas
                 (apartamento_id, recibo_id, consumo, valor_gas, total)
                 VALUES (%s, %s, %s, %s, %s)
-            """, (l["apartamento_id"], recibo["id"], l["consumo_mes"],
-                  valor_gas, valor_gas))
-
-    if not ya_calculado:
+            """, (c["apartamento_id"], recibo["id"], c["consumo"],
+                  c["valor_gas"], c["valor_gas"]))
         con.commit()
+
     con.close()
 
-    return render_template("cobros_gas.html", cobros=cobros_lista, recibo=recibo, grupo_actual=grupo_actual)
+    # Resumen de validación
+    suma_final = sum(c["valor_gas"] for c in cobros_lista)
+    resumen = {
+        "valor_recibo": valor_total_recibo,
+        "suma_cobros_base": suma_base,
+        "diferencia": diferencia,
+        "suma_final": round(suma_final, 2)
+    }
+
+    return render_template("cobros_gas.html", cobros=cobros_lista, recibo=recibo,
+                           grupo_actual=grupo_actual, resumen=resumen)
 
 
 @app.route("/lecturas_gas_ver")
@@ -1061,31 +1089,58 @@ def cobros_agua():
     cursor.execute("SELECT id FROM cobros_agua WHERE recibo_id = %s LIMIT 1", (recibo["id"],))
     ya_calculado = cursor.fetchone()
 
+    # Paso 1: Calcular cobro base por consumo
     cobros_lista = []
+    consumo_total_aptos = 0
+    suma_base = 0
     for l in lecturas:
         valor_agua = round(l["consumo_mes"] * float(recibo["valor_m3"]), 2)
-
+        consumo_total_aptos += l["consumo_mes"]
+        suma_base += valor_agua
         cobros_lista.append({
             "numero": l["numero"],
             "nombre": l["nombre_inquilino"],
             "consumo": l["consumo_mes"],
+            "valor_agua_base": valor_agua,
             "valor_agua": valor_agua,
+            "ajuste": 0,
             "apartamento_id": l["apartamento_id"]
         })
 
-        if not ya_calculado:
+    # Paso 2: Calcular diferencia y repartir proporcionalmente
+    valor_total_recibo = float(recibo["valor_total"])
+    diferencia = round(valor_total_recibo - suma_base, 2)
+
+    if consumo_total_aptos > 0 and diferencia != 0:
+        for c in cobros_lista:
+            proporcion = c["consumo"] / consumo_total_aptos
+            ajuste = round(diferencia * proporcion, 2)
+            c["ajuste"] = ajuste
+            c["valor_agua"] = round(c["valor_agua_base"] + ajuste, 2)
+
+    # Guardar cobros en BD
+    if not ya_calculado and lecturas:
+        for c in cobros_lista:
             cursor.execute("""
                 INSERT INTO cobros_agua
                 (apartamento_id, recibo_id, consumo, valor_agua, total)
                 VALUES (%s, %s, %s, %s, %s)
-            """, (l["apartamento_id"], recibo["id"], l["consumo_mes"],
-                  valor_agua, valor_agua))
-
-    if not ya_calculado:
+            """, (c["apartamento_id"], recibo["id"], c["consumo"],
+                  c["valor_agua"], c["valor_agua"]))
         con.commit()
+
     con.close()
 
-    return render_template("cobros_agua.html", cobros=cobros_lista, recibo=recibo)
+    # Resumen de validación
+    suma_final = sum(c["valor_agua"] for c in cobros_lista)
+    resumen = {
+        "valor_recibo": valor_total_recibo,
+        "suma_cobros_base": suma_base,
+        "diferencia": diferencia,
+        "suma_final": round(suma_final, 2)
+    }
+
+    return render_template("cobros_agua.html", cobros=cobros_lista, recibo=recibo, resumen=resumen)
 
 @app.route("/cobros_agua/<int:recibo_id>")
 def cobros_agua_mes(recibo_id):

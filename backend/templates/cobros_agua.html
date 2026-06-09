@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cobros del Agua</title>
+    <meta charset="UTF-8">
+    <title>Cobros Agua</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="contenedor">
-        <h1>💧 Cobros de Agua del Mes</h1>
+        <h1>💧 Cobros de Agua</h1>
 
-        {% if recibo %}
+        {% if recibo %} 
         <div class="info-recibo">
-            📄 Recibo: {{ recibo.fecha }} — Consumo total facturado: {{ recibo.consumo_total }} m³ — Tarifa: ${{ recibo.valor_m3 }}/m³
+            📄 Recibo: {{ recibo.fecha }} — Tarifa: ${{ recibo.valor_m3 }}/m³ — Total: ${{ "{:,.0f}".format(recibo.valor_total) }}
         </div>
-
+        
         {% if session.usuario_admin %}
         <div style="text-align: center; margin-bottom: 20px;">
             <a href="/admin/editar_recibo_agua/{{ recibo.id }}" class="btn-editar">✏️ Modificar Recibo/Tarifas</a>
@@ -25,11 +25,13 @@
             <table class="tabla-cobros">
                 <thead>
                     <tr>
-                        <th>Apartamento</th>
+                        <th>Apto</th>
                         <th>Inquilino</th>
-                        <th>Consumo (m³)</th>
-                        <th>Total a Pagar</th>
-                        <th>Enviar Cobro</th>
+                        <th>m³</th>
+                        <th>Base</th>
+                        <th>Ajuste</th>
+                        <th>Total</th>
+                        <th>WhatsApp</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -38,12 +40,16 @@
                         <td>{{ c.numero }}</td>
                         <td>{{ c.nombre }}</td>
                         <td>{{ c.consumo }}</td>
+                        <td>${{ "{:,.0f}".format(c.valor_agua_base) }}</td>
+                        <td style="color: {% if c.ajuste > 0 %}#ff6b6b{% elif c.ajuste < 0 %}#51cf66{% else %}inherit{% endif %};">
+                            {% if c.ajuste > 0 %}+{% endif %}${{ "{:,.0f}".format(c.ajuste) }}
+                        </td>
                         <td class="total">${{ "{:,.0f}".format(c.valor_agua) }}</td>
                         <td>
                             <a href="/whatsapp_agua/{{ c.apartamento_id }}"
                                target="_blank"
                                class="btn-whatsapp">
-                                📱 WhatsApp
+                                WhatsApp
                             </a>
                         </td>
                     </tr>
@@ -51,8 +57,43 @@
                 </tbody>
             </table>
         </div>
+
+        {% if resumen %}
+        <div class="lista" style="margin-top: 20px;">
+            <h3 style="text-align: center; margin-bottom: 15px;">📊 Validación vs Recibo</h3>
+            <table class="tabla-cobros">
+                <tr>
+                    <td>💰 Valor Total del Recibo</td>
+                    <td class="total">${{ "{:,.0f}".format(resumen.valor_recibo) }}</td>
+                </tr>
+                <tr>
+                    <td>📐 Suma Cobros Base (consumo × m³)</td>
+                    <td>${{ "{:,.0f}".format(resumen.suma_cobros_base) }}</td>
+                </tr>
+                <tr>
+                    <td>
+                        {% if resumen.diferencia == 0 %}
+                            ✅ Diferencia
+                        {% elif resumen.diferencia > 0 %}
+                            ⚠️ Diferencia (cargos fijos repartidos)
+                        {% else %}
+                            ⚠️ Diferencia (a favor)
+                        {% endif %}
+                    </td>
+                    <td style="color: {% if resumen.diferencia == 0 %}#51cf66{% else %}#fcc419{% endif %}; font-weight: bold;">
+                        {% if resumen.diferencia > 0 %}+{% endif %}${{ "{:,.0f}".format(resumen.diferencia) }}
+                    </td>
+                </tr>
+                <tr style="border-top: 2px solid rgba(255,255,255,0.3);">
+                    <td><strong>✅ Suma Final Cobrada</strong></td>
+                    <td class="total"><strong>${{ "{:,.0f}".format(resumen.suma_final) }}</strong></td>
+                </tr>
+            </table>
+        </div>
+        {% endif %}
+
         {% else %}
-            <div class="alerta-error">⚠️ No hay recibo registrado de Agua.</div>
+            <div class="alerta-error">⚠️ No hay recibo registrado.</div>
         {% endif %}
 
         <br>

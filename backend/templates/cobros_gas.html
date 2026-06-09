@@ -24,7 +24,7 @@
         
         <div class="info-recibo">
             📄 Recibo: {{ recibo.fecha }} — Grupo {{ recibo.grupo }} —
-            ${{ recibo.valor_m3 }}/m³
+            ${{ recibo.valor_m3 }}/m³ — Total: ${{ "{:,.0f}".format(recibo.valor_total) }}
         </div>
         
         {% if session.usuario_admin %}
@@ -38,9 +38,11 @@
             <table class="tabla-cobros">
                 <thead>
                     <tr>
-                        <th>Apartamento</th>
+                        <th>Apto</th>
                         <th>Inquilino</th>
-                        <th>Consumo (m³)</th>
+                        <th>m³</th>
+                        <th>Base</th>
+                        <th>Ajuste</th>
                         <th>Total</th>
                         <th>WhatsApp</th>
                     </tr>
@@ -51,6 +53,10 @@
                         <td>{{ c.numero }}</td>
                         <td>{{ c.nombre }}</td>
                         <td>{{ c.consumo }}</td>
+                        <td>${{ "{:,.0f}".format(c.valor_gas_base) }}</td>
+                        <td style="color: {% if c.ajuste > 0 %}#ff6b6b{% elif c.ajuste < 0 %}#51cf66{% else %}inherit{% endif %};">
+                            {% if c.ajuste > 0 %}+{% endif %}${{ "{:,.0f}".format(c.ajuste) }}
+                        </td>
                         <td class="total">${{ "{:,.0f}".format(c.valor_gas) }}</td>
                         <td>
                             <a href="/whatsapp_gas/{{ c.apartamento_id }}"
@@ -64,6 +70,41 @@
                 </tbody>
             </table>
         </div>
+
+        {% if resumen %}
+        <div class="lista" style="margin-top: 20px;">
+            <h3 style="text-align: center; margin-bottom: 15px;">📊 Validación vs Recibo</h3>
+            <table class="tabla-cobros">
+                <tr>
+                    <td>💰 Valor Total del Recibo</td>
+                    <td class="total">${{ "{:,.0f}".format(resumen.valor_recibo) }}</td>
+                </tr>
+                <tr>
+                    <td>📐 Suma Cobros Base (consumo × m³)</td>
+                    <td>${{ "{:,.0f}".format(resumen.suma_cobros_base) }}</td>
+                </tr>
+                <tr>
+                    <td>
+                        {% if resumen.diferencia == 0 %}
+                            ✅ Diferencia
+                        {% elif resumen.diferencia > 0 %}
+                            ⚠️ Diferencia (cargos fijos repartidos)
+                        {% else %}
+                            ⚠️ Diferencia (a favor)
+                        {% endif %}
+                    </td>
+                    <td style="color: {% if resumen.diferencia == 0 %}#51cf66{% else %}#fcc419{% endif %}; font-weight: bold;">
+                        {% if resumen.diferencia > 0 %}+{% endif %}${{ "{:,.0f}".format(resumen.diferencia) }}
+                    </td>
+                </tr>
+                <tr style="border-top: 2px solid rgba(255,255,255,0.3);">
+                    <td><strong>✅ Suma Final Cobrada</strong></td>
+                    <td class="total"><strong>${{ "{:,.0f}".format(resumen.suma_final) }}</strong></td>
+                </tr>
+            </table>
+        </div>
+        {% endif %}
+
         {% else %}
             <div class="alerta-error">⚠️ No hay recibo registrado.</div>
         {% endif %}
