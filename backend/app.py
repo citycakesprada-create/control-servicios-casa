@@ -20,7 +20,26 @@ def inicializar_db():
                 password VARCHAR(255) NOT NULL
             )
         """)
+        con.commit()
         
+        # Asegurar usuarios marlen y demo existan
+        cursor.execute("SELECT id FROM administradores WHERE usuario = 'marlen'")
+        marlen_row = cursor.fetchone()
+        if not marlen_row:
+            hashed_pw = generate_password_hash("casa123")
+            cursor.execute("INSERT INTO administradores (usuario, password) VALUES ('marlen', %s)", (hashed_pw,))
+            con.commit()
+            cursor.execute("SELECT id FROM administradores WHERE usuario = 'marlen'")
+            marlen_row = cursor.fetchone()
+        
+        marlen_id = marlen_row['id'] if marlen_row else 1
+
+        cursor.execute("SELECT id FROM administradores WHERE usuario = 'demo'")
+        if not cursor.fetchone():
+            hashed_pw_demo = generate_password_hash("demo123")
+            cursor.execute("INSERT INTO administradores (usuario, password) VALUES ('demo', %s)", (hashed_pw_demo,))
+            con.commit()
+
         # Recibos Agua
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS recibos_agua (
@@ -29,9 +48,11 @@ def inicializar_db():
                 consumo_total INT NOT NULL,
                 valor_total DECIMAL(12,2) NOT NULL,
                 valor_m3 DECIMAL(12,2) NOT NULL,
-                observaciones TEXT NULL
+                observaciones TEXT NULL,
+                administrador_id INT NOT NULL
             )
         """)
+        con.commit()
         
         # Lecturas Agua
         cursor.execute("""
@@ -45,6 +66,7 @@ def inicializar_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        con.commit()
         
         # Cobros Agua
         cursor.execute("""
@@ -58,18 +80,23 @@ def inicializar_db():
                 fecha_generacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        con.commit()
         
-        cursor.execute("SELECT id FROM administradores WHERE usuario = 'marlen'")
-        if not cursor.fetchone():
-            hashed_pw = generate_password_hash("casa123")
-            cursor.execute("INSERT INTO administradores (usuario, password) VALUES ('marlen', %s)", (hashed_pw,))
-            con.commit()
-
-        cursor.execute("SELECT id FROM administradores WHERE usuario = 'demo'")
-        if not cursor.fetchone():
-            hashed_pw_demo = generate_password_hash("demo123")
-            cursor.execute("INSERT INTO administradores (usuario, password) VALUES ('demo', %s)", (hashed_pw_demo,))
-            con.commit()
+        # Ejecutar migración de administrador_id si alguna tabla vieja no la tiene
+        tablas_a_migrar = ['apartamentos', 'recibos_luz', 'recibos_gas', 'recibos_agua', 'taller_luz']
+        for tabla in tablas_a_migrar:
+            cursor.execute(f"SHOW TABLES LIKE '{tabla}'")
+            if cursor.fetchone():
+                cursor.execute(f"DESCRIBE {tabla}")
+                columnas = [col['Field'] for col in cursor.fetchall()]
+                if 'administrador_id' not in columnas:
+                    print(f"Migrando tabla {tabla}: agregando administrador_id")
+                    cursor.execute(f"ALTER TABLE {tabla} ADD COLUMN administrador_id INT NULL")
+                    con.commit()
+                    cursor.execute(f"UPDATE {tabla} SET administrador_id = %s WHERE administrador_id IS NULL", (marlen_id,))
+                    con.commit()
+                    cursor.execute(f"ALTER TABLE {tabla} MODIFY COLUMN administrador_id INT NOT NULL")
+                    con.commit()
 
         con.close()
     except Exception as e:
