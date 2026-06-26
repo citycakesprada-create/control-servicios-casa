@@ -729,7 +729,7 @@ def lecturas_gas():
     else:
         numeros = ("201", "202", "301", "302")
     placeholders = ",".join(["%s"] * len(numeros))
-        cursor.execute(f"SELECT * FROM apartamentos WHERE numero IN ({placeholders}) AND administrador_id = %s ORDER BY numero", list(numeros) + [session["admin_id"]])
+    cursor.execute(f"SELECT * FROM apartamentos WHERE numero IN ({placeholders}) AND administrador_id = %s ORDER BY numero", list(numeros) + [session["admin_id"]])
     apartamentos = cursor.fetchall()
 
     ultimas = {}
