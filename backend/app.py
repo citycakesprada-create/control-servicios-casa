@@ -717,7 +717,7 @@ def lecturas_gas():
     cursor = con.cursor()
 
     grupo_actual = int(request.args.get("grupo", 1))
-    if request.method == "POST" and "grupo_sel" in request.form:
+    if request.method == "POST" and "grupo_sel" in request.form and int(request.form["grupo_sel"]) != grupo_actual:
         grupo_actual = int(request.form["grupo_sel"])
         return redirect(f"/lecturas_gas?grupo={grupo_actual}")
 
@@ -755,8 +755,14 @@ def lecturas_gas():
                 (apartamento_id, lectura_anterior, fecha, lectura_actual, consumo_mes)
                 VALUES (%s, %s, %s, %s, %s)
             """, (a["id"], lectura_anterior, fecha, lectura_actual, consumo))
+            print("APARTAMENTO:", a["id"])
+            print("CONSUMO:", consumo)
+            print("FECHA:", fecha)
+            print("INSERT EXECUTED")
 
         con.commit()
+        cursor.execute("SELECT * FROM lecturas_gas ORDER BY id DESC LIMIT 10")
+        print("ULTIMAS LECTURAS:", cursor.fetchall())
         con.close()
         return render_template("lecturas_gas.html",
                                apartamentos=apartamentos,
