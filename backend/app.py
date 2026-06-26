@@ -621,14 +621,17 @@ def cobros_gas():
     else:
         numeros = ("201", "202", "301", "302")
 
-    cursor.execute("""
+    placeholders = ",".join(["%s"] * len(numeros))
+    cursor.execute(f"""
         SELECT l.*, a.numero, a.nombre_inquilino, a.id as apartamento_id
         FROM lecturas_gas l
         JOIN apartamentos a ON l.apartamento_id = a.id
-        WHERE l.fecha = %s AND a.numero IN %s AND a.administrador_id = %s
+        WHERE l.fecha = %s AND a.numero IN ({placeholders}) AND a.administrador_id = %s
         ORDER BY a.numero
-    """, (recibo["fecha"], numeros, session["admin_id"]))
+    """, [recibo["fecha"]] + list(numeros) + [session["admin_id"]])
     lecturas = cursor.fetchall()
+    print("RECIBO ID:", recibo["id"])
+    print("LECTURAS ENCONTRADAS:", len(lecturas))
 
     cursor.execute("SELECT id FROM cobros_gas WHERE recibo_id = %s LIMIT 1", (recibo["id"],))
     ya_calculado = cursor.fetchone()
@@ -642,14 +645,14 @@ def cobros_gas():
         consumo_total_aptos += l["consumo_mes"]
         suma_base += valor_gas
         cobros_lista.append({
-            "numero": l["numero"],
-            "nombre": l["nombre_inquilino"],
-            "consumo": l["consumo_mes"],
-            "valor_gas_base": valor_gas,
-            "valor_gas": valor_gas,
-            "ajuste": 0,
-            "apartamento_id": l["apartamento_id"]
-        })
+                "numero": l["numero"],
+                "nombre": l["nombre_inquilino"],
+                "consumo": l["consumo_mes"],
+                "valor_gas_base": valor_gas,
+                "valor_gas": valor_gas,
+                "ajuste": 0,
+                "apartamento_id": l["apartamento_id"]
+            })
 
     # Paso 2: Calcular diferencia y repartir proporcionalmente
     valor_total_recibo = float(recibo["valor_total"])
@@ -672,6 +675,7 @@ def cobros_gas():
             """, (c["apartamento_id"], recibo["id"], c["consumo"],
                   c["valor_gas"], c["valor_gas"]))
         con.commit()
+        print("COBROS GENERADOS:", len(cobros_lista))
 
     con.close()
 
@@ -724,7 +728,8 @@ def lecturas_gas():
         numeros = ("101", "401", "402", "501")
     else:
         numeros = ("201", "202", "301", "302")
-    cursor.execute("SELECT * FROM apartamentos WHERE numero IN %s AND administrador_id = %s ORDER BY numero", (numeros, session["admin_id"]))
+    placeholders = ",".join(["%s"] * len(numeros))
+        cursor.execute(f"SELECT * FROM apartamentos WHERE numero IN ({placeholders}) AND administrador_id = %s ORDER BY numero", list(numeros) + [session["admin_id"]])
     apartamentos = cursor.fetchall()
 
     ultimas = {}
@@ -1054,12 +1059,13 @@ def editar_recibo_gas(recibo_id):
         else:
             numeros = ("201", "202", "301", "302")
             
+        placeholders = ",".join(["%s"] * len(numeros))
         cursor.execute("""
             SELECT l.*, a.id as apartamento_id
             FROM lecturas_gas l
             JOIN apartamentos a ON l.apartamento_id = a.id
-            WHERE l.fecha = %s AND a.numero IN %s AND a.administrador_id = %s
-        """, (fecha, numeros, session["admin_id"]))
+            WHERE l.fecha = %s AND a.numero IN ({placeholders}) AND a.administrador_id = %s
+        """, [fecha] + list(numeros) + [session["admin_id"]])
         lecturas = cursor.fetchall()
         
         for l in lecturas:
