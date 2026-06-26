@@ -283,7 +283,18 @@ Total a pagar: ${int(cobro['total']):,}
 
 Gracias."""
 
-    telefono = apto['telefono'].replace("+", "").replace(" ", "")
+    telefono = apto['telefono']
+    print("RAW DB PHONE:", telefono)
+    telefono = str(telefono).strip()
+    telefono = telefono.replace(" ", "")
+    telefono = telefono.replace("-", "")
+    telefono = telefono.replace("+", "")
+    if telefono.startswith("57"):
+        telefono = telefono[2:]
+    print("CLEAN PHONE:", telefono)
+    if len(telefono) == 10:
+        telefono = "57" + telefono
+    print("FINAL PHONE:", telefono)
     url_whatsapp = f"https://wa.me/{telefono}?text={quote(mensaje)}"
 
     return redirect(url_whatsapp)
@@ -596,7 +607,18 @@ Total a pagar: ${int(cobro['total']):,}
 
 Gracias."""
 
-    telefono = apto['telefono'].replace("+", "").replace(" ", "")
+    telefono = apto['telefono']
+    print("RAW DB PHONE:", telefono)
+    telefono = str(telefono).strip()
+    telefono = telefono.replace(" ", "")
+    telefono = telefono.replace("-", "")
+    telefono = telefono.replace("+", "")
+    if telefono.startswith("57"):
+        telefono = telefono[2:]
+    print("CLEAN PHONE:", telefono)
+    if len(telefono) == 10:
+        telefono = "57" + telefono
+    print("FINAL PHONE:", telefono)
     url_whatsapp = f"https://wa.me/{telefono}?text={quote(mensaje)}"
     return redirect(url_whatsapp)
 
@@ -1377,7 +1399,18 @@ Total a pagar: ${int(cobro['total']):,}
 
 Gracias."""
 
-    telefono = apto['telefono'].replace("+", "").replace(" ", "")
+    telefono = apto['telefono']
+    print("RAW DB PHONE:", telefono)
+    telefono = str(telefono).strip()
+    telefono = telefono.replace(" ", "")
+    telefono = telefono.replace("-", "")
+    telefono = telefono.replace("+", "")
+    if telefono.startswith("57"):
+        telefono = telefono[2:]
+    print("CLEAN PHONE:", telefono)
+    if len(telefono) == 10:
+        telefono = "57" + telefono
+    print("FINAL PHONE:", telefono)
     url_whatsapp = f"https://wa.me/{telefono}?text={quote(mensaje)}"
     return redirect(url_whatsapp)
 
