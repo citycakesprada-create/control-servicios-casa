@@ -6,6 +6,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = "clave_secreta_super_segura_para_servicios_casa"
 
+MESES = {
+    1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio",
+    7: "julio", 8: "agosto", 9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
+}
+
 # Crear tablas necesarias y usuario por defecto si no existen
 def inicializar_db():
     try:
@@ -271,6 +276,17 @@ def whatsapp(apartamento_id):
     if not cobro or not apto:
         return "No hay datos", 404
 
+    nombre_mes = "mes"
+    if hasattr(cobro["fecha"], "month"):
+        nombre_mes = MESES.get(cobro["fecha"].month, "mes")
+    elif isinstance(cobro["fecha"], str):
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(cobro["fecha"], "%Y-%m-%d")
+            nombre_mes = MESES.get(dt.month, "mes")
+        except Exception:
+            pass
+
     mensaje = f"""Hola,
 
 Apartamento {apto['numero']}
@@ -280,6 +296,8 @@ Valor energia: ${int(cobro['valor_energia']):,}
 Aseo: ${int(cobro['valor_aseo']):,}
 
 Total a pagar: ${int(cobro['total']):,}
+
+Por favor pagar antes del 09 de {nombre_mes}.
 
 Gracias."""
 
@@ -598,12 +616,25 @@ def whatsapp_gas(apartamento_id):
     if not cobro or not apto:
         return "No hay datos", 404
 
+    nombre_mes = "mes"
+    if hasattr(cobro["fecha"], "month"):
+        nombre_mes = MESES.get(cobro["fecha"].month, "mes")
+    elif isinstance(cobro["fecha"], str):
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(cobro["fecha"], "%Y-%m-%d")
+            nombre_mes = MESES.get(dt.month, "mes")
+        except Exception:
+            pass
+
     mensaje = f"""Hola,
 
 Apartamento {apto['numero']}
 
 Gas consumido: {cobro['consumo']} m3
 Total a pagar: ${int(cobro['total']):,}
+
+Por favor pagar antes del 03 de {nombre_mes}.
 
 Gracias."""
 
