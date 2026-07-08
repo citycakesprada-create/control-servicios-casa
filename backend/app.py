@@ -1051,6 +1051,30 @@ def editar_recibo(recibo_id):
     con.close()
     return render_template("editar_recibo.html", recibo=recibo)
 
+@app.route("/admin/eliminar_recibo/<int:recibo_id>")
+def eliminar_recibo(recibo_id):
+    if not es_admin():
+        return redirect("/login")
+        
+    con = conectar()
+    cursor = con.cursor()
+    
+    # Validar propiedad
+    cursor.execute("SELECT id FROM recibos_luz WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
+    if not cursor.fetchone():
+        con.close()
+        return "Recibo no encontrado o no tienes permisos", 403
+        
+    # Eliminar cobros y taller asociados primero
+    cursor.execute("DELETE FROM taller_luz WHERE recibo_id = %s", (recibo_id,))
+    cursor.execute("DELETE FROM cobros_luz WHERE recibo_id = %s", (recibo_id,))
+    # Eliminar recibo
+    cursor.execute("DELETE FROM recibos_luz WHERE id = %s", (recibo_id,))
+    
+    con.commit()
+    con.close()
+    return redirect("/historial")
+
 @app.route("/admin/editar_recibo_gas/<int:recibo_id>", methods=["GET", "POST"])
 def editar_recibo_gas(recibo_id):
     if not es_admin():
@@ -1120,6 +1144,32 @@ def editar_recibo_gas(recibo_id):
         
     con.close()
     return render_template("editar_recibo_gas.html", recibo=recibo)
+
+@app.route("/admin/eliminar_recibo_gas/<int:recibo_id>")
+def eliminar_recibo_gas(recibo_id):
+    if not es_admin():
+        return redirect("/login")
+        
+    con = conectar()
+    cursor = con.cursor()
+    
+    # Validar propiedad y obtener grupo
+    cursor.execute("SELECT id, grupo FROM recibos_gas WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
+    recibo = cursor.fetchone()
+    if not recibo:
+        con.close()
+        return "Recibo no encontrado o no tienes permisos", 403
+        
+    grupo = recibo["grupo"]
+    
+    # Eliminar cobros asociados
+    cursor.execute("DELETE FROM cobros_gas WHERE recibo_id = %s", (recibo_id,))
+    # Eliminar recibo
+    cursor.execute("DELETE FROM recibos_gas WHERE id = %s", (recibo_id,))
+    
+    con.commit()
+    con.close()
+    return redirect(f"/cobros_gas?grupo={grupo}")
 
 # ==================== MODULO DE AGUA ====================
 
@@ -1475,6 +1525,29 @@ def editar_recibo_agua(recibo_id):
         
     con.close()
     return render_template("editar_recibo_agua.html", recibo=recibo)
+
+@app.route("/admin/eliminar_recibo_agua/<int:recibo_id>")
+def eliminar_recibo_agua(recibo_id):
+    if not es_admin():
+        return redirect("/login")
+        
+    con = conectar()
+    cursor = con.cursor()
+    
+    # Validar propiedad
+    cursor.execute("SELECT id FROM recibos_agua WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
+    if not cursor.fetchone():
+        con.close()
+        return "Recibo no encontrado o no tienes permisos", 403
+        
+    # Eliminar cobros asociados
+    cursor.execute("DELETE FROM cobros_agua WHERE recibo_id = %s", (recibo_id,))
+    # Eliminar recibo
+    cursor.execute("DELETE FROM recibos_agua WHERE id = %s", (recibo_id,))
+    
+    con.commit()
+    con.close()
+    return redirect("/cobros_agua")
 
 if __name__ == "__main__":
     app.run(debug=True)
