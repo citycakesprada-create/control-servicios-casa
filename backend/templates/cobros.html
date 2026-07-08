@@ -46,7 +46,7 @@
                         <td>${{ "{:,.0f}".format(c.valor_aseo) }}</td>
                         <td class="total">${{ "{:,.0f}".format(c.total) }}</td>
                         <td>
-                             <a href="/whatsapp/{{ c.apartamento_id }}" 
+                             <a href="/whatsapp/{{ c.apartamento_id }}?recibo_id={{ recibo.id }}" 
                              target="_blank" 
                              class="btn-whatsapp">
                              📱 WhatsApp

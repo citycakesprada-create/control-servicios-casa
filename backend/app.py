@@ -257,19 +257,28 @@ def cobros():
 
 @app.route("/whatsapp/<int:apartamento_id>")
 def whatsapp(apartamento_id):
+    recibo_id = request.args.get("recibo_id")
     con = conectar()
     cursor = con.cursor()
 
     cursor.execute("SELECT * FROM apartamentos WHERE id = %s", (apartamento_id,))
     apto = cursor.fetchone()
 
-    cursor.execute("""
-        SELECT c.*, r.fecha 
-        FROM cobros_luz c
-        JOIN recibos_luz r ON c.recibo_id = r.id
-        WHERE c.apartamento_id = %s
-        ORDER BY r.fecha DESC LIMIT 1
-    """, (apartamento_id,))
+    if recibo_id:
+        cursor.execute("""
+            SELECT c.*, r.fecha 
+            FROM cobros_luz c
+            JOIN recibos_luz r ON c.recibo_id = r.id
+            WHERE c.apartamento_id = %s AND r.id = %s
+        """, (apartamento_id, recibo_id))
+    else:
+        cursor.execute("""
+            SELECT c.*, r.fecha 
+            FROM cobros_luz c
+            JOIN recibos_luz r ON c.recibo_id = r.id
+            WHERE c.apartamento_id = %s
+            ORDER BY r.fecha DESC LIMIT 1
+        """, (apartamento_id,))
     cobro = cursor.fetchone()
     con.close()
 
@@ -597,19 +606,28 @@ def recibo_gas():
 
 @app.route("/whatsapp_gas/<int:apartamento_id>")
 def whatsapp_gas(apartamento_id):
+    recibo_id = request.args.get("recibo_id")
     con = conectar()
     cursor = con.cursor()
 
     cursor.execute("SELECT * FROM apartamentos WHERE id = %s", (apartamento_id,))
     apto = cursor.fetchone()
 
-    cursor.execute("""
-        SELECT c.*, r.fecha 
-        FROM cobros_gas c
-        JOIN recibos_gas r ON c.recibo_id = r.id
-        WHERE c.apartamento_id = %s
-        ORDER BY r.fecha DESC LIMIT 1
-    """, (apartamento_id,))
+    if recibo_id:
+        cursor.execute("""
+            SELECT c.*, r.fecha 
+            FROM cobros_gas c
+            JOIN recibos_gas r ON c.recibo_id = r.id
+            WHERE c.apartamento_id = %s AND r.id = %s
+        """, (apartamento_id, recibo_id))
+    else:
+        cursor.execute("""
+            SELECT c.*, r.fecha 
+            FROM cobros_gas c
+            JOIN recibos_gas r ON c.recibo_id = r.id
+            WHERE c.apartamento_id = %s
+            ORDER BY r.fecha DESC LIMIT 1
+        """, (apartamento_id,))
     cobro = cursor.fetchone()
     con.close()
 
@@ -1452,19 +1470,28 @@ def editar_lectura_agua(lectura_id):
 
 @app.route("/whatsapp_agua/<int:apartamento_id>")
 def whatsapp_agua(apartamento_id):
+    recibo_id = request.args.get("recibo_id")
     con = conectar()
     cursor = con.cursor()
 
     cursor.execute("SELECT * FROM apartamentos WHERE id = %s", (apartamento_id,))
     apto = cursor.fetchone()
 
-    cursor.execute("""
-        SELECT c.*, r.fecha 
-        FROM cobros_agua c
-        JOIN recibos_agua r ON c.recibo_id = r.id
-        WHERE c.apartamento_id = %s
-        ORDER BY r.fecha DESC LIMIT 1
-    """, (apartamento_id,))
+    if recibo_id:
+        cursor.execute("""
+            SELECT c.*, r.fecha 
+            FROM cobros_agua c
+            JOIN recibos_agua r ON c.recibo_id = r.id
+            WHERE c.apartamento_id = %s AND r.id = %s
+        """, (apartamento_id, recibo_id))
+    else:
+        cursor.execute("""
+            SELECT c.*, r.fecha 
+            FROM cobros_agua c
+            JOIN recibos_agua r ON c.recibo_id = r.id
+            WHERE c.apartamento_id = %s
+            ORDER BY r.fecha DESC LIMIT 1
+        """, (apartamento_id,))
     cobro = cursor.fetchone()
     con.close()
 
