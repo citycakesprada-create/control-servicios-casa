@@ -103,6 +103,61 @@ def inicializar_db():
                     cursor.execute(f"ALTER TABLE {tabla} MODIFY COLUMN administrador_id INT NOT NULL")
                     con.commit()
 
+        # Limpieza de lecturas y cobros duplicados existentes
+        def limpiar_duplicados_lecturas(tabla):
+            try:
+                cursor.execute(f"SHOW TABLES LIKE '{tabla}'")
+                if not cursor.fetchone():
+                    return
+                cursor.execute(f"SELECT id, apartamento_id, fecha, consumo_mes FROM {tabla} ORDER BY apartamento_id, fecha, consumo_mes DESC, id DESC")
+                filas = cursor.fetchall()
+                vistos = set()
+                ids_a_eliminar = []
+                for f in filas:
+                    clave = (f['apartamento_id'], str(f['fecha']))
+                    if clave in vistos:
+                        ids_a_eliminar.append(f['id'])
+                    else:
+                        vistos.add(clave)
+                if ids_a_eliminar:
+                    print(f"Limpiando {len(ids_a_eliminar)} registros duplicados en {tabla}")
+                    for bid in ids_a_eliminar:
+                        cursor.execute(f"DELETE FROM {tabla} WHERE id = %s", (bid,))
+                    con.commit()
+            except Exception as ex:
+                print(f"Error limpiando duplicados en {tabla}:", ex)
+
+        def limpiar_duplicados_cobros(tabla):
+            try:
+                cursor.execute(f"SHOW TABLES LIKE '{tabla}'")
+                if not cursor.fetchone():
+                    return
+                cursor.execute(f"SELECT id, apartamento_id, recibo_id, consumo FROM {tabla} ORDER BY apartamento_id, recibo_id, consumo DESC, id DESC")
+                filas = cursor.fetchall()
+                vistos = set()
+                ids_a_eliminar = []
+                for f in filas:
+                    clave = (f['apartamento_id'], f['recibo_id'])
+                    if clave in vistos:
+                        ids_a_eliminar.append(f['id'])
+                    else:
+                        vistos.add(clave)
+                if ids_a_eliminar:
+                    print(f"Limpiando {len(ids_a_eliminar)} cobros duplicados en {tabla}")
+                    for bid in ids_a_eliminar:
+                        cursor.execute(f"DELETE FROM {tabla} WHERE id = %s", (bid,))
+                    con.commit()
+            except Exception as ex:
+                print(f"Error limpiando duplicados en {tabla}:", ex)
+
+        limpiar_duplicados_lecturas('lecturas_luz')
+        limpiar_duplicados_lecturas('lecturas_gas')
+        limpiar_duplicados_lecturas('lecturas_agua')
+
+        limpiar_duplicados_cobros('cobros_luz')
+        limpiar_duplicados_cobros('cobros_gas')
+        limpiar_duplicados_cobros('cobros_agua')
+
         con.close()
     except Exception as e:
         print("Error al inicializar la base de datos:", e)
@@ -170,33 +225,45 @@ def lecturas():
         ultima = cursor.fetchone()
         ultimas[a["id"]] = ultima["lectura_actual"] if ultima else 0
 
+    guardado = request.args.get("guardado") == "1"
     if request.method == "POST":
         fecha = request.form.get("fecha_lectura")
         for a in apartamentos:
             lectura_actual = int(request.form[f"lectura_{a['id']}"])
-            lectura_anterior = ultimas[a["id"]]
-            consumo = lectura_actual - lectura_anterior
 
             cursor.execute("""
-                INSERT INTO lecturas_luz 
-                (apartamento_id, lectura_anterior, fecha, lectura_actual, consumo_mes)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (a["id"], lectura_anterior, fecha, lectura_actual, consumo))
+                SELECT id, lectura_anterior FROM lecturas_luz 
+                WHERE apartamento_id = %s AND fecha = %s
+            """, (a["id"], fecha))
+            existente = cursor.fetchone()
+
+            if existente:
+                lectura_anterior = existente["lectura_anterior"]
+                consumo = lectura_actual - lectura_anterior
+                cursor.execute("""
+                    UPDATE lecturas_luz 
+                    SET lectura_actual = %s, consumo_mes = %s
+                    WHERE id = %s
+                """, (lectura_actual, consumo, existente["id"]))
+            else:
+                lectura_anterior = ultimas[a["id"]]
+                consumo = lectura_actual - lectura_anterior
+                cursor.execute("""
+                    INSERT INTO lecturas_luz 
+                    (apartamento_id, lectura_anterior, fecha, lectura_actual, consumo_mes)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (a["id"], lectura_anterior, fecha, lectura_actual, consumo))
 
         con.commit()
         con.close()
-        return render_template("lecturas.html",
-                               apartamentos=apartamentos,
-                               ultimas=ultimas,
-                               recibo=recibo,
-                               guardado=True)
+        return redirect(url_for("lecturas", guardado=1))
 
     con.close()
     return render_template("lecturas.html",
                            apartamentos=apartamentos,
                            ultimas=ultimas,
                            recibo=recibo,
-                           guardado=False)
+                           guardado=guardado)
 
 @app.route("/cobros")
 def cobros():
@@ -221,8 +288,14 @@ def cobros():
     """, (recibo["fecha"], session["admin_id"]))
     lecturas = cursor.fetchall()
 
-    cursor.execute("SELECT id FROM cobros_luz WHERE recibo_id = %s LIMIT 1", (recibo["id"],))
-    ya_calculado = cursor.fetchone()
+    # Deduplicar lecturas por apartamento_id por seguridad
+    lecturas_map = {}
+    for l in lecturas:
+        aid = l["apartamento_id"]
+        if aid not in lecturas_map or l["consumo_mes"] > lecturas_map[aid]["consumo_mes"]:
+            lecturas_map[aid] = l
+    lecturas = list(lecturas_map.values())
+    lecturas.sort(key=lambda x: str(x["numero"]))
 
     valor_aseo_por_apto = round(float(recibo["valor_aseo"]) / 8, 2)
     cobros_lista = []
@@ -241,7 +314,15 @@ def cobros():
             "apartamento_id": l["apartamento_id"]
         })
 
-        if not ya_calculado:
+        cursor.execute("SELECT id FROM cobros_luz WHERE apartamento_id = %s AND recibo_id = %s", (l["apartamento_id"], recibo["id"]))
+        cobro_existente = cursor.fetchone()
+        if cobro_existente:
+            cursor.execute("""
+                UPDATE cobros_luz
+                SET consumo = %s, valor_energia = %s, valor_aseo = %s, total = %s
+                WHERE id = %s
+            """, (l["consumo_mes"], valor_energia, valor_aseo_por_apto, total, cobro_existente["id"]))
+        else:
             cursor.execute("""
                 INSERT INTO cobros_luz 
                 (apartamento_id, recibo_id, consumo, valor_energia, valor_aseo, total)
@@ -249,8 +330,13 @@ def cobros():
             """, (l["apartamento_id"], recibo["id"], l["consumo_mes"],
                   valor_energia, valor_aseo_por_apto, total))
 
-    if not ya_calculado:
-        con.commit()
+    # Limpiar cobros sobrantes en BD para este recibo si no corresponden
+    ids_validos = [l["apartamento_id"] for l in lecturas]
+    if ids_validos:
+        placeholders = ",".join(["%s"] * len(ids_validos))
+        cursor.execute(f"DELETE FROM cobros_luz WHERE recibo_id = %s AND apartamento_id NOT IN ({placeholders})", [recibo["id"]] + ids_validos)
+
+    con.commit()
     con.close()
 
     return render_template("cobros.html", cobros=cobros_lista, recibo=recibo)
@@ -370,6 +456,16 @@ def cobros_mes(recibo_id):
         ORDER BY a.numero
     """, (recibo_id, session["admin_id"]))
     cobros = cursor.fetchall()
+
+    # Deduplicar por si quedaron duplicados
+    cobros_map = {}
+    for c in cobros:
+        aid = c["apartamento_id"]
+        if aid not in cobros_map or c["consumo"] > cobros_map[aid]["consumo"]:
+            cobros_map[aid] = c
+    cobros = list(cobros_map.values())
+    cobros.sort(key=lambda x: str(x["numero"]))
+
     con.close()
 
     return render_template("cobros.html", cobros=cobros, recibo=recibo)
@@ -426,6 +522,36 @@ def editar_lectura(lectura_id):
 
     con.close()
     return render_template("editar_lectura.html", lectura=lectura)
+
+@app.route("/admin/eliminar_lectura/<int:lectura_id>")
+def eliminar_lectura(lectura_id):
+    if not es_admin():
+        return redirect("/login")
+    con = conectar()
+    cursor = con.cursor()
+
+    cursor.execute("""
+        SELECT l.*, a.administrador_id 
+        FROM lecturas_luz l
+        JOIN apartamentos a ON l.apartamento_id = a.id
+        WHERE l.id = %s AND a.administrador_id = %s
+    """, (lectura_id, session["admin_id"]))
+    lectura = cursor.fetchone()
+
+    if not lectura:
+        con.close()
+        return "Lectura no encontrada o no tienes permisos", 403
+
+    # Buscar recibo de esa fecha para limpiar cobro asociado
+    cursor.execute("SELECT id FROM recibos_luz WHERE fecha = %s AND administrador_id = %s", (lectura["fecha"], session["admin_id"]))
+    recibo = cursor.fetchone()
+    if recibo:
+        cursor.execute("DELETE FROM cobros_luz WHERE apartamento_id = %s AND recibo_id = %s", (lectura["apartamento_id"], recibo["id"]))
+
+    cursor.execute("DELETE FROM lecturas_luz WHERE id = %s", (lectura_id,))
+    con.commit()
+    con.close()
+    return redirect("/lecturas_ver")
 @app.route("/lecturas_ver")
 def lecturas_ver():
     if not es_admin():
@@ -704,8 +830,14 @@ def cobros_gas():
     print("RECIBO ID:", recibo["id"])
     print("LECTURAS ENCONTRADAS:", len(lecturas))
 
-    cursor.execute("SELECT id FROM cobros_gas WHERE recibo_id = %s LIMIT 1", (recibo["id"],))
-    ya_calculado = cursor.fetchone()
+    # Deduplicar lecturas por apartamento_id por seguridad
+    lecturas_map = {}
+    for l in lecturas:
+        aid = l["apartamento_id"]
+        if aid not in lecturas_map or l["consumo_mes"] > lecturas_map[aid]["consumo_mes"]:
+            lecturas_map[aid] = l
+    lecturas = list(lecturas_map.values())
+    lecturas.sort(key=lambda x: str(x["numero"]))
 
     # Paso 1: Calcular cobro base por consumo
     cobros_lista = []
@@ -736,17 +868,33 @@ def cobros_gas():
             c["ajuste"] = ajuste
             c["valor_gas"] = round(c["valor_gas_base"] + ajuste, 2)
 
-    # Guardar cobros en BD
-    if not ya_calculado and lecturas:
+    # Guardar cobros en BD con upsert
+    if lecturas:
         for c in cobros_lista:
-            cursor.execute("""
-                INSERT INTO cobros_gas
-                (apartamento_id, recibo_id, consumo, valor_gas, total)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (c["apartamento_id"], recibo["id"], c["consumo"],
-                  c["valor_gas"], c["valor_gas"]))
+            cursor.execute("SELECT id FROM cobros_gas WHERE apartamento_id = %s AND recibo_id = %s", (c["apartamento_id"], recibo["id"]))
+            cobro_existente = cursor.fetchone()
+            if cobro_existente:
+                cursor.execute("""
+                    UPDATE cobros_gas
+                    SET consumo = %s, valor_gas = %s, total = %s
+                    WHERE id = %s
+                """, (c["consumo"], c["valor_gas"], c["valor_gas"], cobro_existente["id"]))
+            else:
+                cursor.execute("""
+                    INSERT INTO cobros_gas
+                    (apartamento_id, recibo_id, consumo, valor_gas, total)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (c["apartamento_id"], recibo["id"], c["consumo"],
+                      c["valor_gas"], c["valor_gas"]))
+
+        # Limpiar cobros sobrantes para este recibo si no corresponden
+        ids_validos = [c["apartamento_id"] for c in cobros_lista]
+        if ids_validos:
+            placeholders_clean = ",".join(["%s"] * len(ids_validos))
+            cursor.execute(f"DELETE FROM cobros_gas WHERE recibo_id = %s AND apartamento_id NOT IN ({placeholders_clean})", [recibo["id"]] + ids_validos)
+
         con.commit()
-        print("COBROS GENERADOS:", len(cobros_lista))
+        print("COBROS GUARDADOS/ACTUALIZADOS:", len(cobros_lista))
 
     con.close()
 
@@ -814,40 +962,45 @@ def lecturas_gas():
         ultima = cursor.fetchone()
         ultimas[a["id"]] = ultima["lectura_actual"] if ultima else 0
 
+    guardado = request.args.get("guardado") == "1"
     if request.method == "POST":
         fecha = request.form.get("fecha_lectura")
         for a in apartamentos:
             lectura_actual = int(request.form[f"lectura_{a['id']}"])
-            lectura_anterior = ultimas[a["id"]]
-            consumo = lectura_actual - lectura_anterior
 
             cursor.execute("""
-                INSERT INTO lecturas_gas
-                (apartamento_id, lectura_anterior, fecha, lectura_actual, consumo_mes)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (a["id"], lectura_anterior, fecha, lectura_actual, consumo))
-            print("APARTAMENTO:", a["id"])
-            print("CONSUMO:", consumo)
-            print("FECHA:", fecha)
-            print("INSERT EXECUTED")
+                SELECT id, lectura_anterior FROM lecturas_gas 
+                WHERE apartamento_id = %s AND fecha = %s
+            """, (a["id"], fecha))
+            existente = cursor.fetchone()
+
+            if existente:
+                lectura_anterior = existente["lectura_anterior"]
+                consumo = lectura_actual - lectura_anterior
+                cursor.execute("""
+                    UPDATE lecturas_gas
+                    SET lectura_actual = %s, consumo_mes = %s
+                    WHERE id = %s
+                """, (lectura_actual, consumo, existente["id"]))
+            else:
+                lectura_anterior = ultimas[a["id"]]
+                consumo = lectura_actual - lectura_anterior
+                cursor.execute("""
+                    INSERT INTO lecturas_gas
+                    (apartamento_id, lectura_anterior, fecha, lectura_actual, consumo_mes)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (a["id"], lectura_anterior, fecha, lectura_actual, consumo))
 
         con.commit()
-        cursor.execute("SELECT * FROM lecturas_gas ORDER BY id DESC LIMIT 10")
-        print("ULTIMAS LECTURAS:", cursor.fetchall())
         con.close()
-        return render_template("lecturas_gas.html",
-                               apartamentos=apartamentos,
-                               ultimas=ultimas,
-                               recibo=recibo,
-                               guardado=True,
-                               grupo_actual=grupo_actual)
+        return redirect(f"/lecturas_gas?grupo={grupo_actual}&guardado=1")
 
     con.close()
     return render_template("lecturas_gas.html",
                            apartamentos=apartamentos,
                            ultimas=ultimas,
                            recibo=recibo,
-                           guardado=False,
+                           guardado=guardado,
                            grupo_actual=grupo_actual)
 
 @app.route("/editar_lectura_gas/<int:lectura_id>", methods=["GET", "POST"])
@@ -902,6 +1055,36 @@ def editar_lectura_gas(lectura_id):
 
     con.close()
     return render_template("editar_lectura_gas.html", lectura=lectura)
+
+@app.route("/admin/eliminar_lectura_gas/<int:lectura_id>")
+def eliminar_lectura_gas(lectura_id):
+    if not es_admin():
+        return redirect("/login")
+    con = conectar()
+    cursor = con.cursor()
+
+    cursor.execute("""
+        SELECT l.*, a.administrador_id 
+        FROM lecturas_gas l
+        JOIN apartamentos a ON l.apartamento_id = a.id
+        WHERE l.id = %s AND a.administrador_id = %s
+    """, (lectura_id, session["admin_id"]))
+    lectura = cursor.fetchone()
+
+    if not lectura:
+        con.close()
+        return "Lectura no encontrada o no tienes permisos", 403
+
+    # Limpiar cobros asociados si existe recibo
+    cursor.execute("SELECT id, grupo FROM recibos_gas WHERE fecha = %s AND administrador_id = %s", (lectura["fecha"], session["admin_id"]))
+    recibos = cursor.fetchall()
+    for r in recibos:
+        cursor.execute("DELETE FROM cobros_gas WHERE apartamento_id = %s AND recibo_id = %s", (lectura["apartamento_id"], r["id"]))
+
+    cursor.execute("DELETE FROM lecturas_gas WHERE id = %s", (lectura_id,))
+    con.commit()
+    con.close()
+    return redirect("/lecturas_gas_ver")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -1266,31 +1449,44 @@ def lecturas_agua():
         ultima = cursor.fetchone()
         ultimas[a["id"]] = ultima["lectura_actual"] if ultima else 0
 
+    guardado = request.args.get("guardado") == "1"
     if request.method == "POST":
         fecha = request.form.get("fecha_lectura")
         for a in apartamentos:
             lectura_actual = int(request.form[f"lectura_{a['id']}"])
-            lectura_anterior = ultimas[a["id"]]
-            consumo = lectura_actual - lectura_anterior
 
             cursor.execute("""
-                INSERT INTO lecturas_agua 
-                (apartamento_id, lectura_anterior, fecha, lectura_actual, consumo_mes)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (a["id"], lectura_anterior, fecha, lectura_actual, consumo))
+                SELECT id, lectura_anterior FROM lecturas_agua 
+                WHERE apartamento_id = %s AND fecha = %s
+            """, (a["id"], fecha))
+            existente = cursor.fetchone()
+
+            if existente:
+                lectura_anterior = existente["lectura_anterior"]
+                consumo = lectura_actual - lectura_anterior
+                cursor.execute("""
+                    UPDATE lecturas_agua 
+                    SET lectura_actual = %s, consumo_mes = %s
+                    WHERE id = %s
+                """, (lectura_actual, consumo, existente["id"]))
+            else:
+                lectura_anterior = ultimas[a["id"]]
+                consumo = lectura_actual - lectura_anterior
+                cursor.execute("""
+                    INSERT INTO lecturas_agua 
+                    (apartamento_id, lectura_anterior, fecha, lectura_actual, consumo_mes)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (a["id"], lectura_anterior, fecha, lectura_actual, consumo))
 
         con.commit()
         con.close()
-        return render_template("lecturas_agua.html",
-                               apartamentos=apartamentos,
-                               ultimas=ultimas,
-                               guardado=True)
+        return redirect(url_for("lecturas_agua", guardado=1))
 
     con.close()
     return render_template("lecturas_agua.html",
                            apartamentos=apartamentos,
                            ultimas=ultimas,
-                           guardado=False)
+                           guardado=guardado)
 
 @app.route("/cobros_agua")
 def cobros_agua():
@@ -1315,8 +1511,14 @@ def cobros_agua():
     """, (recibo["fecha"], session["admin_id"]))
     lecturas = cursor.fetchall()
 
-    cursor.execute("SELECT id FROM cobros_agua WHERE recibo_id = %s LIMIT 1", (recibo["id"],))
-    ya_calculado = cursor.fetchone()
+    # Deduplicar lecturas por apartamento_id por seguridad
+    lecturas_map = {}
+    for l in lecturas:
+        aid = l["apartamento_id"]
+        if aid not in lecturas_map or l["consumo_mes"] > lecturas_map[aid]["consumo_mes"]:
+            lecturas_map[aid] = l
+    lecturas = list(lecturas_map.values())
+    lecturas.sort(key=lambda x: str(x["numero"]))
 
     # Paso 1: Calcular cobro base por consumo
     cobros_lista = []
@@ -1347,15 +1549,31 @@ def cobros_agua():
             c["ajuste"] = ajuste
             c["valor_agua"] = round(c["valor_agua_base"] + ajuste, 2)
 
-    # Guardar cobros en BD
-    if not ya_calculado and lecturas:
+    # Guardar cobros en BD con upsert
+    if lecturas:
         for c in cobros_lista:
-            cursor.execute("""
-                INSERT INTO cobros_agua
-                (apartamento_id, recibo_id, consumo, valor_agua, total)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (c["apartamento_id"], recibo["id"], c["consumo"],
-                  c["valor_agua"], c["valor_agua"]))
+            cursor.execute("SELECT id FROM cobros_agua WHERE apartamento_id = %s AND recibo_id = %s", (c["apartamento_id"], recibo["id"]))
+            cobro_existente = cursor.fetchone()
+            if cobro_existente:
+                cursor.execute("""
+                    UPDATE cobros_agua
+                    SET consumo = %s, valor_agua = %s, total = %s
+                    WHERE id = %s
+                """, (c["consumo"], c["valor_agua"], c["valor_agua"], cobro_existente["id"]))
+            else:
+                cursor.execute("""
+                    INSERT INTO cobros_agua
+                    (apartamento_id, recibo_id, consumo, valor_agua, total)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (c["apartamento_id"], recibo["id"], c["consumo"],
+                      c["valor_agua"], c["valor_agua"]))
+
+        # Limpiar cobros sobrantes para este recibo si no corresponden
+        ids_validos = [c["apartamento_id"] for c in cobros_lista]
+        if ids_validos:
+            placeholders_clean = ",".join(["%s"] * len(ids_validos))
+            cursor.execute(f"DELETE FROM cobros_agua WHERE recibo_id = %s AND apartamento_id NOT IN ({placeholders_clean})", [recibo["id"]] + ids_validos)
+
         con.commit()
 
     con.close()
@@ -1393,6 +1611,16 @@ def cobros_agua_mes(recibo_id):
         ORDER BY a.numero
     """, (recibo_id, session["admin_id"]))
     cobros = cursor.fetchall()
+
+    # Deduplicar por si quedaron duplicados
+    cobros_map = {}
+    for c in cobros:
+        aid = c["apartamento_id"]
+        if aid not in cobros_map or c["consumo"] > cobros_map[aid]["consumo"]:
+            cobros_map[aid] = c
+    cobros = list(cobros_map.values())
+    cobros.sort(key=lambda x: str(x["numero"]))
+
     con.close()
 
     return render_template("cobros_agua.html", cobros=cobros, recibo=recibo)
@@ -1467,6 +1695,36 @@ def editar_lectura_agua(lectura_id):
 
     con.close()
     return render_template("editar_lectura_agua.html", lectura=lectura)
+
+@app.route("/admin/eliminar_lectura_agua/<int:lectura_id>")
+def eliminar_lectura_agua(lectura_id):
+    if not es_admin():
+        return redirect("/login")
+    con = conectar()
+    cursor = con.cursor()
+
+    cursor.execute("""
+        SELECT l.*, a.administrador_id 
+        FROM lecturas_agua l
+        JOIN apartamentos a ON l.apartamento_id = a.id
+        WHERE l.id = %s AND a.administrador_id = %s
+    """, (lectura_id, session["admin_id"]))
+    lectura = cursor.fetchone()
+
+    if not lectura:
+        con.close()
+        return "Lectura no encontrada o no tienes permisos", 403
+
+    # Buscar recibo de esa fecha para limpiar cobro asociado
+    cursor.execute("SELECT id FROM recibos_agua WHERE fecha = %s AND administrador_id = %s", (lectura["fecha"], session["admin_id"]))
+    recibo = cursor.fetchone()
+    if recibo:
+        cursor.execute("DELETE FROM cobros_agua WHERE apartamento_id = %s AND recibo_id = %s", (lectura["apartamento_id"], recibo["id"]))
+
+    cursor.execute("DELETE FROM lecturas_agua WHERE id = %s", (lectura_id,))
+    con.commit()
+    con.close()
+    return redirect("/lecturas_agua_ver")
 
 @app.route("/whatsapp_agua/<int:apartamento_id>")
 def whatsapp_agua(apartamento_id):

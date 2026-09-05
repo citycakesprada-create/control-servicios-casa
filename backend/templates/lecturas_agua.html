@@ -15,7 +15,7 @@
         {% endif %}
 
         <div class="lista">
-            <form method="POST">
+            <form method="POST" onsubmit="const b = this.querySelector('button[type=submit]'); if (b) { b.disabled = true; b.innerText = 'Guardando...'; }">
                 <div class="campo">
                     <label for="fecha_lectura">Fecha de Lectura</label>
                     <input type="date" id="fecha_lectura" name="fecha_lectura" required>

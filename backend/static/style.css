@@ -321,7 +321,7 @@ a {
     .tabla-cobros th, .tabla-cobros td {
         padding: 8px;
     }
-    .btn-whatsapp, .btn-editar {
+    .btn-whatsapp, .btn-editar, .btn-eliminar {
         padding: 6px 10px;
         font-size: 13px;
     }

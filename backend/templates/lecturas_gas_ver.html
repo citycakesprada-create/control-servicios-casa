@@ -21,6 +21,7 @@
                         <th>Consumo</th>
                         {% if session.usuario_admin %}
                         <th>Editar</th>
+                        <th>Eliminar</th>
                         {% endif %}
                     </tr>
                 </thead>
@@ -36,6 +37,11 @@
                         <td>
                             <a href="/editar_lectura_gas/{{ l.id }}" class="btn-editar">
                                 ✏️ Editar
+                            </a>
+                        </td>
+                        <td>
+                            <a href="/admin/eliminar_lectura_gas/{{ l.id }}" class="btn-eliminar" onclick="return confirm('¿Estás seguro de que deseas eliminar esta lectura de gas?');">
+                                🗑️ Eliminar
                             </a>
                         </td>
                         {% endif %}
