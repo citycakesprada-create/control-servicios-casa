@@ -13,32 +13,41 @@
         <div style="display: flex; gap: 30px; flex-wrap: wrap; margin-bottom: 30px;">
             <!-- FORMULARIO NUEVO APARTAMENTO -->
             <div class="lista" style="flex: 1; min-width: 300px;">
-                <h2>➕ Agregar Apartamento</h2>
+                <h2>➕ Agregar Inquilino</h2>
                 <form method="POST">
                     <div class="campo">
-                        <label for="numero">Número de Apartamento</label>
-                        <input type="text" id="numero" name="numero" required placeholder="Ej: 102">
+                        <label for="piso">Piso / Ubicación</label>
+                        <input type="text" id="piso" name="piso" placeholder="Ej: Primer Piso, Sótano...">
+                    </div>
+                    <div class="campo">
+                        <label for="numero">Número o Habitación</label>
+                        <input type="text" id="numero" name="numero" required placeholder="Ej: 101, Sótano...">
                     </div>
                     <div class="campo">
                         <label for="nombre_inquilino">Nombre del Inquilino</label>
                         <input type="text" id="nombre_inquilino" name="nombre_inquilino" required placeholder="Nombre completo">
                     </div>
                     <div class="campo">
+                        <label for="personas">👥 Cantidad de Personas</label>
+                        <input type="number" id="personas" name="personas" min="1" value="1" required>
+                    </div>
+                    <div class="campo">
                         <label for="telefono">Teléfono / Celular</label>
                         <input type="text" id="telefono" name="telefono" required placeholder="Ej: 3001234567">
                     </div>
-                    <button type="submit">Guardar Apartamento</button>
+                    <button type="submit">Guardar Inquilino</button>
                 </form>
             </div>
 
             <!-- TABLA DE APARTAMENTOS EXISTENTES -->
-            <div class="lista" style="flex: 2; min-width: 450px;">
-                <h2>Apartamentos Registrados</h2>
+            <div class="lista" style="flex: 2; min-width: 500px;">
+                <h2>Inquilinos Registrados</h2>
                 <table class="tabla-cobros">
                     <thead>
                         <tr>
-                            <th>Número</th>
+                            <th>Piso / Número</th>
                             <th>Inquilino</th>
+                            <th style="text-align: center;">Personas</th>
                             <th>Teléfono</th>
                             <th>Acciones</th>
                         </tr>
@@ -46,13 +55,23 @@
                     <tbody>
                         {% for a in apartamentos %}
                         <tr>
-                            <td>{{ a.numero }}</td>
+                            <td>
+                                {% if a.piso %}
+                                <span style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; font-size: 12px; display: inline-block; margin-bottom: 2px;">{{ a.piso }}</span><br>
+                                {% endif %}
+                                <strong>{{ a.numero }}</strong>
+                            </td>
                             <td>{{ a.nombre_inquilino }}</td>
+                            <td style="text-align: center;">
+                                <span style="background: rgba(52, 152, 219, 0.4); padding: 4px 10px; border-radius: 8px; font-weight: bold;">
+                                    👥 {{ a.personas or 1 }}
+                                </span>
+                            </td>
                             <td>{{ a.telefono }}</td>
                             <td>
                                 <div style="display: flex; gap: 8px;">
                                     <a href="/admin/editar_apartamento/{{ a.id }}" class="btn-editar" style="padding: 5px 10px; font-size: 14px;">✏️ Editar</a>
-                                    <a href="/admin/eliminar_apartamento/{{ a.id }}" class="btn-editar" style="background: rgba(220, 53, 69, 0.4); border-color: rgba(220, 53, 69, 0.6); padding: 5px 10px; font-size: 14px;" onclick="return confirm('¿Seguro que deseas eliminar este apartamento?');">🗑️ Borrar</a>
+                                    <a href="/admin/eliminar_apartamento/{{ a.id }}" class="btn-editar" style="background: rgba(220, 53, 69, 0.4); border-color: rgba(220, 53, 69, 0.6); padding: 5px 10px; font-size: 14px;" onclick="return confirm('¿Seguro que deseas eliminar este inquilino?');">🗑️ Borrar</a>
                                 </div>
                             </td>
                         </tr>

@@ -45,6 +45,18 @@ def inicializar_db():
             cursor.execute("INSERT INTO administradores (usuario, password) VALUES ('demo', %s)", (hashed_pw_demo,))
             con.commit()
 
+        # Asegurar usuarios casaabuela y servicioabuela
+        for u_abuela in ['casaabuela', 'servicioabuela']:
+            cursor.execute("SELECT id FROM administradores WHERE usuario = %s", (u_abuela,))
+            row_abuela = cursor.fetchone()
+            hashed_pw_abuela = generate_password_hash("casa123456")
+            if not row_abuela:
+                cursor.execute("INSERT INTO administradores (usuario, password) VALUES (%s, %s)", (u_abuela, hashed_pw_abuela))
+                con.commit()
+            else:
+                cursor.execute("UPDATE administradores SET password = %s WHERE usuario = %s", (hashed_pw_abuela, u_abuela))
+                con.commit()
+
         # Recibos Agua
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS recibos_agua (
@@ -86,6 +98,93 @@ def inicializar_db():
             )
         """)
         con.commit()
+
+        # Recibos Cabeza (Casa Abuela)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recibos_cabeza (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                fecha DATE NOT NULL,
+                concepto VARCHAR(100) DEFAULT 'Servicios del mes',
+                tipo_recibo VARCHAR(50) DEFAULT 'Todos',
+                valor_luz DECIMAL(12,2) DEFAULT 0,
+                valor_agua DECIMAL(12,2) DEFAULT 0,
+                valor_gas DECIMAL(12,2) DEFAULT 0,
+                valor_total DECIMAL(12,2) NOT NULL,
+                total_personas INT NOT NULL,
+                valor_por_cabeza DECIMAL(12,2) NOT NULL,
+                observaciones TEXT NULL,
+                administrador_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        con.commit()
+
+        # Cobros Cabeza (Casa Abuela)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cobros_cabeza (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                recibo_id INT NOT NULL,
+                apartamento_id INT NOT NULL,
+                personas INT NOT NULL,
+                valor_luz DECIMAL(12,2) DEFAULT 0,
+                valor_agua DECIMAL(12,2) DEFAULT 0,
+                valor_gas DECIMAL(12,2) DEFAULT 0,
+                total DECIMAL(12,2) NOT NULL,
+                estado VARCHAR(20) DEFAULT 'Pendiente',
+                fecha_generacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        con.commit()
+
+        # Migración de columnas piso y personas en apartamentos
+        cursor.execute("SHOW TABLES LIKE 'apartamentos'")
+        if cursor.fetchone():
+            cursor.execute("DESCRIBE apartamentos")
+            columnas_apto = [col['Field'] for col in cursor.fetchall()]
+            if 'personas' not in columnas_apto:
+                cursor.execute("ALTER TABLE apartamentos ADD COLUMN personas INT NOT NULL DEFAULT 1")
+                con.commit()
+            if 'piso' not in columnas_apto:
+                cursor.execute("ALTER TABLE apartamentos ADD COLUMN piso VARCHAR(50) NULL DEFAULT ''")
+                con.commit()
+
+        # Precargar los 10 inquilinos por piso para casaabuela y servicioabuela
+        inquilinos_abuela = [
+            {"numero": "Sótano", "nombre": "Kati navarro", "piso": "Sótano", "personas": 2, "telefono": "3005583361"},
+            {"numero": "101", "nombre": "Juan", "piso": "Primer Piso", "personas": 2, "telefono": "3144147191"},
+            {"numero": "102", "nombre": "Elisaul", "piso": "Primer Piso", "personas": 2, "telefono": "3217762472"},
+            {"numero": "201", "nombre": "Esaul", "piso": "Segundo Piso", "personas": 3, "telefono": "3214941341"},
+            {"numero": "202", "nombre": "Osiris", "piso": "Segundo Piso", "personas": 2, "telefono": "3218137405"},
+            {"numero": "203", "nombre": "Rosa", "piso": "Segundo Piso", "personas": 1, "telefono": "3204273349"},
+            {"numero": "301", "nombre": "Catalino", "piso": "Tercer Piso", "personas": 2, "telefono": "3229823410"},
+            {"numero": "302", "nombre": "Eider", "piso": "Tercer Piso", "personas": 2, "telefono": "3185153298"},
+            {"numero": "303", "nombre": "Luis sierra", "piso": "Tercer Piso", "personas": 1, "telefono": "3104703454"},
+            {"numero": "401", "nombre": "Aldemas medina", "piso": "Cuarto Piso", "personas": 1, "telefono": "3209480710"},
+        ]
+
+        for u_name in ['casaabuela', 'servicioabuela']:
+            cursor.execute("SELECT id FROM administradores WHERE usuario = %s", (u_name,))
+            admin_row = cursor.fetchone()
+            if admin_row:
+                aid = admin_row["id"]
+                cursor.execute("SELECT COUNT(*) as cnt FROM apartamentos WHERE administrador_id = %s", (aid,))
+                cnt_row = cursor.fetchone()
+                if cnt_row and cnt_row["cnt"] == 0:
+                    for inq in inquilinos_abuela:
+                        cursor.execute("""
+                            INSERT INTO apartamentos (numero, nombre_inquilino, telefono, personas, piso, administrador_id)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (inq["numero"], inq["nombre"], inq["telefono"], inq["personas"], inq["piso"], aid))
+                    con.commit()
+                else:
+                    # Asegurar que los apartamentos existentes tengan personas y piso cargados
+                    for inq in inquilinos_abuela:
+                        cursor.execute("""
+                            UPDATE apartamentos 
+                            SET personas = %s, piso = %s 
+                            WHERE administrador_id = %s AND (nombre_inquilino LIKE %s OR numero = %s)
+                        """, (inq["personas"], inq["piso"], aid, f"%{inq['nombre'][:4]}%", inq["numero"]))
+                    con.commit()
         
         # Ejecutar migración de administrador_id si alguna tabla vieja no la tiene
         tablas_a_migrar = ['apartamentos', 'recibos_luz', 'recibos_gas', 'recibos_agua', 'taller_luz']
@@ -167,16 +266,29 @@ inicializar_db()
 def es_admin():
     return "usuario_admin" in session and "admin_id" in session
 
+def es_casaabuela():
+    return session.get("usuario_admin") in ["casaabuela", "servicioabuela"]
+
 @app.route("/")
 def inicio():
     if not es_admin():
         return redirect("/login")
     con = conectar()
     cursor = con.cursor()
-    cursor.execute("SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY numero", (session["admin_id"],))
-    apartamentos = cursor.fetchall()
+    
+    es_abuela = es_casaabuela()
+    if es_abuela:
+        cursor.execute("SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY id", (session["admin_id"],))
+        apartamentos = cursor.fetchall()
+        cursor.execute("SELECT * FROM recibos_cabeza WHERE administrador_id = %s ORDER BY fecha DESC, id DESC LIMIT 1", (session["admin_id"],))
+        ultimo_recibo_abuela = cursor.fetchone()
+    else:
+        cursor.execute("SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY numero", (session["admin_id"],))
+        apartamentos = cursor.fetchall()
+        ultimo_recibo_abuela = None
+
     con.close()
-    return render_template("index.html", apartamentos=apartamentos)
+    return render_template("index.html", apartamentos=apartamentos, es_abuela=es_abuela, ultimo_recibo_abuela=ultimo_recibo_abuela)
 
 @app.route("/recibo", methods=["GET", "POST"])
 def recibo():
@@ -1126,18 +1238,21 @@ def admin_apartamentos():
         numero = request.form["numero"]
         nombre = request.form["nombre_inquilino"]
         telefono = request.form["telefono"]
+        piso = request.form.get("piso", "")
+        personas = int(request.form.get("personas", 1) or 1)
         
         cursor.execute("""
-            INSERT INTO apartamentos (numero, nombre_inquilino, telefono, administrador_id)
-            VALUES (%s, %s, %s, %s)
-        """, (numero, nombre, telefono, session["admin_id"]))
+            INSERT INTO apartamentos (numero, nombre_inquilino, telefono, piso, personas, administrador_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (numero, nombre, telefono, piso, personas, session["admin_id"]))
         con.commit()
         
-    cursor.execute("SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY numero", (session["admin_id"],))
+    order_clause = "id" if es_casaabuela() else "numero"
+    cursor.execute(f"SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY {order_clause}", (session["admin_id"],))
     apartamentos = cursor.fetchall()
     con.close()
     
-    return render_template("admin_apartamentos.html", apartamentos=apartamentos)
+    return render_template("admin_apartamentos.html", apartamentos=apartamentos, es_abuela=es_casaabuela())
 
 @app.route("/admin/editar_apartamento/<int:apto_id>", methods=["GET", "POST"])
 def editar_apartamento(apto_id):
@@ -1159,18 +1274,20 @@ def editar_apartamento(apto_id):
         numero = request.form["numero"]
         nombre = request.form["nombre_inquilino"]
         telefono = request.form["telefono"]
+        piso = request.form.get("piso", apto.get("piso", ""))
+        personas = int(request.form.get("personas", apto.get("personas", 1)) or 1)
         
         cursor.execute("""
             UPDATE apartamentos 
-            SET numero = %s, nombre_inquilino = %s, telefono = %s
+            SET numero = %s, nombre_inquilino = %s, telefono = %s, piso = %s, personas = %s
             WHERE id = %s
-        """, (numero, nombre, telefono, apto_id))
+        """, (numero, nombre, telefono, piso, personas, apto_id))
         con.commit()
         con.close()
         return redirect("/admin/apartamentos")
         
     con.close()
-    return render_template("editar_apartamento.html", apartamento=apto)
+    return render_template("editar_apartamento.html", apartamento=apto, es_abuela=es_casaabuela())
 
 @app.route("/admin/eliminar_apartamento/<int:apto_id>")
 def eliminar_apartamento(apto_id):
@@ -1865,5 +1982,217 @@ def eliminar_recibo_agua(recibo_id):
     con.close()
     return redirect("/cobros_agua")
 
+# ==================== MODULO CASA ABUELA (COBRO POR CABEZA) ====================
+
+@app.route("/abuela/recibo", methods=["GET", "POST"])
+def abuela_recibo():
+    if not es_admin():
+        return redirect("/login")
+    
+    con = conectar()
+    cursor = con.cursor()
+
+    if request.method == "POST":
+        fecha = request.form["fecha"]
+        tipo_recibo = request.form.get("tipo_recibo", "Todos") # "Todos", "Luz", "Agua", "Gas"
+        concepto = request.form.get("concepto", "").strip() or f"Recibo de {tipo_recibo}"
+        observaciones = request.form.get("observaciones", "").strip()
+
+        val_luz = float(request.form.get("valor_luz", 0) or 0)
+        val_agua = float(request.form.get("valor_agua", 0) or 0)
+        val_gas = float(request.form.get("valor_gas", 0) or 0)
+        val_directo = float(request.form.get("valor_total_directo", 0) or 0)
+
+        if val_directo > 0:
+            valor_total = val_directo
+        else:
+            valor_total = val_luz + val_agua + val_gas
+
+        cursor.execute("SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY id", (session["admin_id"],))
+        apartamentos = cursor.fetchall()
+        
+        total_personas = sum(a.get("personas", 1) for a in apartamentos)
+        if total_personas == 0:
+            total_personas = 1
+
+        valor_por_cabeza = round(valor_total / total_personas, 2)
+
+        cursor.execute("""
+            INSERT INTO recibos_cabeza 
+            (fecha, concepto, tipo_recibo, valor_luz, valor_agua, valor_gas, valor_total, total_personas, valor_por_cabeza, observaciones, administrador_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (fecha, concepto, tipo_recibo, val_luz, val_agua, val_gas, valor_total, total_personas, valor_por_cabeza, observaciones, session["admin_id"]))
+        recibo_id = cursor.lastrowid
+
+        # Insertar cobros por inquilino
+        for a in apartamentos:
+            p = a.get("personas", 1)
+            if val_directo > 0 or (val_luz == 0 and val_agua == 0 and val_gas == 0):
+                apto_luz = round((valor_por_cabeza * p), 2) if tipo_recibo == "Luz" else 0
+                apto_agua = round((valor_por_cabeza * p), 2) if tipo_recibo == "Agua" else 0
+                apto_gas = round((valor_por_cabeza * p), 2) if tipo_recibo == "Gas" else 0
+                apto_total = round(valor_por_cabeza * p, 2)
+            else:
+                apto_luz = round((val_luz / total_personas) * p, 2) if val_luz > 0 else 0
+                apto_agua = round((val_agua / total_personas) * p, 2) if val_agua > 0 else 0
+                apto_gas = round((val_gas / total_personas) * p, 2) if val_gas > 0 else 0
+                apto_total = round(apto_luz + apto_agua + apto_gas, 2)
+
+            cursor.execute("""
+                INSERT INTO cobros_cabeza
+                (recibo_id, apartamento_id, personas, valor_luz, valor_agua, valor_gas, total)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (recibo_id, a["id"], p, apto_luz, apto_agua, apto_gas, apto_total))
+
+        con.commit()
+        con.close()
+        return redirect(f"/abuela/cobros?guardado=1&recibo_id={recibo_id}")
+
+    cursor.execute("SELECT * FROM apartamentos WHERE administrador_id = %s ORDER BY id", (session["admin_id"],))
+    apartamentos = cursor.fetchall()
+    total_personas = sum(a.get("personas", 1) for a in apartamentos)
+    con.close()
+    return render_template("abuela_recibo.html", total_personas=total_personas, num_inquilinos=len(apartamentos))
+
+@app.route("/abuela/cobros")
+def abuela_cobros():
+    if not es_admin():
+        return redirect("/login")
+    
+    con = conectar()
+    cursor = con.cursor()
+
+    recibo_id = request.args.get("recibo_id")
+    if recibo_id:
+        cursor.execute("SELECT * FROM recibos_cabeza WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
+    else:
+        cursor.execute("SELECT * FROM recibos_cabeza WHERE administrador_id = %s ORDER BY fecha DESC, id DESC LIMIT 1", (session["admin_id"],))
+    recibo = cursor.fetchone()
+
+    cobros = []
+    if recibo:
+        cursor.execute("""
+            SELECT c.*, a.numero, a.nombre_inquilino, a.telefono, a.piso
+            FROM cobros_cabeza c
+            JOIN apartamentos a ON c.apartamento_id = a.id
+            WHERE c.recibo_id = %s
+            ORDER BY a.id ASC
+        """, (recibo["id"],))
+        cobros = cursor.fetchall()
+
+    guardado = request.args.get("guardado") == "1"
+    con.close()
+    return render_template("abuela_cobros.html", recibo=recibo, cobros=cobros, guardado=guardado)
+
+@app.route("/abuela/whatsapp/<int:apartamento_id>")
+def abuela_whatsapp(apartamento_id):
+    if not es_admin():
+        return redirect("/login")
+
+    recibo_id = request.args.get("recibo_id")
+    con = conectar()
+    cursor = con.cursor()
+
+    cursor.execute("SELECT * FROM apartamentos WHERE id = %s AND administrador_id = %s", (apartamento_id, session["admin_id"]))
+    apto = cursor.fetchone()
+
+    if recibo_id:
+        cursor.execute("SELECT * FROM recibos_cabeza WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
+    else:
+        cursor.execute("SELECT * FROM recibos_cabeza WHERE administrador_id = %s ORDER BY fecha DESC, id DESC LIMIT 1", (session["admin_id"],))
+    recibo = cursor.fetchone()
+
+    if not apto or not recibo:
+        con.close()
+        return "No hay información disponible", 404
+
+    cursor.execute("SELECT * FROM cobros_cabeza WHERE recibo_id = %s AND apartamento_id = %s", (recibo["id"], apartamento_id))
+    cobro = cursor.fetchone()
+    con.close()
+
+    if not cobro:
+        return "Cobro no encontrado", 404
+
+    nombre_mes = "este mes"
+    if hasattr(recibo["fecha"], "month"):
+        nombre_mes = MESES.get(recibo["fecha"].month, "este mes")
+    elif isinstance(recibo["fecha"], str):
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(recibo["fecha"], "%Y-%m-%d")
+            nombre_mes = MESES.get(dt.month, "este mes")
+        except Exception:
+            pass
+
+    piso_txt = f" ({apto['piso']})" if apto.get('piso') else ""
+    
+    # Construcción del mensaje
+    tipo = recibo.get("tipo_recibo", "Servicios")
+    desglose_lineas = []
+    if cobro.get("valor_luz") and float(cobro["valor_luz"]) > 0:
+        desglose_lineas.append(f"💡 Luz: ${int(cobro['valor_luz']):,}")
+    if cobro.get("valor_agua") and float(cobro["valor_agua"]) > 0:
+        desglose_lineas.append(f"💧 Agua: ${int(cobro['valor_agua']):,}")
+    if cobro.get("valor_gas") and float(cobro["valor_gas"]) > 0:
+        desglose_lineas.append(f"🔥 Gas: ${int(cobro['valor_gas']):,}")
+    
+    texto_desglose = "\n".join(desglose_lineas)
+    if texto_desglose:
+        texto_desglose = "\n" + texto_desglose + "\n"
+    else:
+        texto_desglose = ""
+
+    nombre_concepto = "servicios" if tipo == "Todos" else f"recibo de {tipo}"
+
+    mensaje = f"""Hola {apto['nombre_inquilino']}{piso_txt} 👋
+
+Cobro de {nombre_concepto} del mes de {nombre_mes}:
+👥 Personas a cargo: {cobro['personas']} persona(s)
+{texto_desglose}
+👤 Valor por persona: ${int(recibo['valor_por_cabeza']):,}
+💰 Total a pagar: ${int(cobro['total']):,}
+
+Por favor realizar el pago correspondiente. ¡Muchas gracias! 🙏"""
+
+    telefono = str(apto.get('telefono', '')).strip()
+    telefono = telefono.replace(" ", "").replace("-", "").replace("+", "")
+    if telefono.startswith("57"):
+        telefono = telefono[2:]
+    if len(telefono) == 10:
+        telefono = "57" + telefono
+
+    url_whatsapp = f"https://wa.me/{telefono}?text={quote(mensaje)}"
+    return redirect(url_whatsapp)
+
+@app.route("/abuela/historial")
+def abuela_historial():
+    if not es_admin():
+        return redirect("/login")
+    
+    con = conectar()
+    cursor = con.cursor()
+    cursor.execute("SELECT * FROM recibos_cabeza WHERE administrador_id = %s ORDER BY fecha DESC, id DESC", (session["admin_id"],))
+    recibos = cursor.fetchall()
+    con.close()
+    return render_template("abuela_historial.html", recibos=recibos)
+
+@app.route("/abuela/eliminar_recibo/<int:recibo_id>")
+def abuela_eliminar_recibo(recibo_id):
+    if not es_admin():
+        return redirect("/login")
+    
+    con = conectar()
+    cursor = con.cursor()
+    cursor.execute("SELECT id FROM recibos_cabeza WHERE id = %s AND administrador_id = %s", (recibo_id, session["admin_id"]))
+    if not cursor.fetchone():
+        con.close()
+        return "Recibo no encontrado o sin permisos", 403
+
+    cursor.execute("DELETE FROM cobros_cabeza WHERE recibo_id = %s", (recibo_id,))
+    cursor.execute("DELETE FROM recibos_cabeza WHERE id = %s", (recibo_id,))
+    con.commit()
+    con.close()
+    return redirect("/abuela/historial")
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True)

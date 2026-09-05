@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Cobros por Cabeza - Casa Abuela</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .badge-piso {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffff99;
+            margin-right: 5px;
+        }
+        .badge-personas {
+            display: inline-block;
+            background: rgba(52, 152, 219, 0.3);
+            border: 1px solid rgba(52, 152, 219, 0.6);
+            color: #d6eaf8;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .tarjeta-resumen {
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 25px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            text-align: center;
+        }
+        .item-resumen h4 {
+            margin: 0 0 5px 0;
+            font-size: 14px;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+        .item-resumen p {
+            margin: 0;
+            font-size: 22px;
+            font-weight: bold;
+            color: #ffff99;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <!-- BARRA SUPERIOR -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+            <a href="/" class="btn-editar">⬅️ Volver al Inicio</a>
+            <div style="display: flex; gap: 10px;">
+                <a href="/abuela/recibo" class="btn-editar" style="background: #f1c40f; color: #2c3e50; font-weight: bold;">➕ Nuevo Recibo</a>
+                <a href="/abuela/historial" class="btn-editar">📋 Historial</a>
+            </div>
+        </div>
+
+        <h1>💰 Cobros de Servicios — Casa Abuela</h1>
+
+        {% if guardado %}
+            <div class="alerta-ok">
+                ✅ ¡Recibo guardado y cobros calculados con éxito!
+            </div>
+        {% endif %}
+
+        {% if recibo %}
+            <!-- RESUMEN DEL RECIBO -->
+            <div class="tarjeta-resumen">
+                <div class="item-resumen">
+                    <h4>📅 Fecha Recibo</h4>
+                    <p>{{ recibo.fecha }}</p>
+                </div>
+                <div class="item-resumen">
+                    <h4>🏷️ Concepto</h4>
+                    <p>{{ recibo.tipo_recibo }}</p>
+                </div>
+                <div class="item-resumen">
+                    <h4>💵 Total Facturado</h4>
+                    <p>${{ "{:,.0f}".format(recibo.valor_total) }}</p>
+                </div>
+                <div class="item-resumen">
+                    <h4>👥 Total Cabezas</h4>
+                    <p>{{ recibo.total_personas }} personas</p>
+                </div>
+                <div class="item-resumen" style="border-left: 2px solid rgba(255,255,255,0.2);">
+                    <h4>👤 Valor Por Cabeza</h4>
+                    <p style="color: #58d68d;">${{ "{:,.0f}".format(recibo.valor_por_cabeza) }}</p>
+                </div>
+            </div>
+
+            {% if recibo.valor_luz > 0 or recibo.valor_agua > 0 or recibo.valor_gas > 0 %}
+            <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; font-size: 15px;">
+                {% if recibo.valor_luz > 0 %}
+                <span style="background: rgba(241, 196, 15, 0.25); padding: 5px 12px; border-radius: 8px;">💡 Luz: ${{ "{:,.0f}".format(recibo.valor_luz) }}</span>
+                {% endif %}
+                {% if recibo.valor_agua > 0 %}
+                <span style="background: rgba(52, 152, 219, 0.25); padding: 5px 12px; border-radius: 8px;">💧 Agua: ${{ "{:,.0f}".format(recibo.valor_agua) }}</span>
+                {% endif %}
+                {% if recibo.valor_gas > 0 %}
+                <span style="background: rgba(230, 126, 34, 0.25); padding: 5px 12px; border-radius: 8px;">🔥 Gas: ${{ "{:,.0f}".format(recibo.valor_gas) }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- TABLA DE COBROS -->
+            <div class="lista">
+                <table class="tabla-cobros">
+                    <thead>
+                        <tr>
+                            <th>Ubicación</th>
+                            <th>Inquilino</th>
+                            <th style="text-align: center;">Personas</th>
+                            <th style="text-align: right;">Cálculo</th>
+                            <th style="text-align: right;">Total a Pagar</th>
+                            <th style="text-align: center;">WhatsApp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in cobros %}
+                        <tr>
+                            <td>
+                                <span class="badge-piso">{{ c.piso or 'Piso' }}</span>
+                                <span style="font-size: 14px; opacity: 0.8;">{{ c.numero }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ c.nombre_inquilino }}</strong>
+                                {% if c.telefono %}
+                                <div style="font-size: 12px; opacity: 0.7;">📱 {{ c.telefono }}</div>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: center;">
+                                <span class="badge-personas">👤 {{ c.personas }}</span>
+                            </td>
+                            <td style="text-align: right; font-size: 15px; opacity: 0.85;">
+                                {{ c.personas }} × ${{ "{:,.0f}".format(recibo.valor_por_cabeza) }}
+                            </td>
+                            <td style="text-align: right;" class="total">
+                                ${{ "{:,.0f}".format(c.total) }}
+                            </td>
+                            <td style="text-align: center;">
+                                <a href="/abuela/whatsapp/{{ c.apartamento_id }}?recibo_id={{ recibo.id }}" 
+                                   target="_blank" 
+                                   class="btn-whatsapp"
+                                   title="Enviar cobro a {{ c.nombre_inquilino }}">
+                                    📲 Cobrar
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        {% else %}
+            <div class="info-recibo" style="padding: 40px;">
+                <p style="font-size: 22px; margin-bottom: 20px;">Aún no se ha registrado ningún recibo para Casa Abuela.</p>
+                <a href="/abuela/recibo" class="btn-menu" style="display: inline-block;">➕ Registrar Primer Recibo</a>
+            </div>
+        {% endif %}
+
+    </div>
+</body>
+</html>

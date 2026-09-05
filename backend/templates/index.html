@@ -11,7 +11,7 @@
         <!-- BARRA DE SESION -->
         <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; gap: 15px;">
             {% if session.usuario_admin %}
-                <span style="font-size: 18px; font-weight: bold; color: #ffff99;">👋 Hola, Admin</span>
+                <span style="font-size: 18px; font-weight: bold; color: #ffff99;">👋 Hola, {{ session.usuario_admin|capitalize }}</span>
                 <a href="/admin/apartamentos" class="btn-editar" style="font-size: 14px; padding: 6px 12px; border-color: rgba(255, 255, 255, 0.4);">🏢 Inquilinos</a>
                 <a href="/logout" class="btn-editar" style="background: rgba(220, 53, 69, 0.4); border-color: rgba(220, 53, 69, 0.6); font-size: 14px; padding: 6px 12px;">🚪 Salir</a>
             {% else %}
@@ -19,70 +19,128 @@
             {% endif %}
         </div>
 
-        <h1>🏠 CONTROL SERVICIOS CASA</h1>
+        {% if es_abuela %}
+            <!-- PANEL EXCLUSIVO CASA ABUELA -->
+            <h1>👵 SERVICIOS CASA ABUELA</h1>
+            <p style="text-align: center; font-size: 18px; margin-top: -25px; margin-bottom: 35px; color: #ffff99;">
+                Sistema de Cobro Por Cabeza (Número de Personas)
+            </p>
 
-        <div class="modulos">
-
-            <!-- LUZ -->
-            <div class="modulo" onclick="toggle('luz')">
-                <span>💡 LUZ</span>
-                <span class="flecha" id="flecha-luz">▼</span>
-            </div>
-            <div class="submenu" id="luz">
-                {% if session.usuario_admin %}
-                <a href="/recibo" class="btn-sub">📄 Ingresar Recibo</a>
-                <a href="/lecturas" class="btn-sub">⚡ Ingresar Lecturas</a>
-                {% endif %}
-                <a href="/cobros" class="btn-sub">💰 Ver Cobros</a>
-                <a href="/historial" class="btn-sub">📋 Historial</a>
-                <a href="/lecturas_ver" class="btn-sub">📝 Ver Lecturas</a>
-            </div>
-
-            <!-- GAS -->
-            <div class="modulo" onclick="toggle('gas')">
-                <span>🔥 GAS</span>
-                <span class="flecha" id="flecha-gas">▼</span>
-            </div>
-            <div class="submenu" id="gas">
-                {% if session.usuario_admin %}
-                <a href="/recibo_gas" class="btn-sub">📄 Ingresar Recibo</a>
-                <a href="/lecturas_gas" class="btn-sub">🔥 Ingresar Lecturas</a>
-                {% endif %}
-                <a href="/cobros_gas" class="btn-sub">💰 Ver Cobros</a>
-                <a href="/lecturas_gas_ver" class="btn-sub">📝 Ver Lecturas</a>
+            <div class="menu">
+                <a href="/abuela/recibo" class="btn-menu" style="background: rgba(241, 196, 15, 0.25); border-color: #f1c40f;">
+                    📄 Ingresar Recibo
+                </a>
+                <a href="/abuela/cobros" class="btn-menu" style="background: rgba(46, 204, 113, 0.25); border-color: #2ecc71;">
+                    💰 Ver Cobros & WhatsApp
+                </a>
+                <a href="/abuela/historial" class="btn-menu">
+                    📋 Historial de Recibos
+                </a>
+                <a href="/admin/apartamentos" class="btn-menu">
+                    👥 Inquilinos y Personas
+                </a>
             </div>
 
-            <!-- AGUA -->
-            <div class="modulo" onclick="toggle('agua')">
-                <span>💧 AGUA</span>
-                <span class="flecha" id="flecha-agua">▼</span>
+            {% if ultimo_recibo_abuela %}
+            <div class="info-recibo" style="border: 1px solid rgba(255,255,255,0.3); margin-top: 20px;">
+                <div style="font-size: 16px; opacity: 0.85;">Último Recibo Registrado: <strong>{{ ultimo_recibo_abuela.fecha }}</strong> ({{ ultimo_recibo_abuela.tipo_recibo }})</div>
+                <div style="font-size: 22px; font-weight: bold; color: #ffff99; margin: 8px 0;">Total: ${{ "{:,.0f}".format(ultimo_recibo_abuela.valor_total) }} &nbsp;|&nbsp; Por cabeza: ${{ "{:,.0f}".format(ultimo_recibo_abuela.valor_por_cabeza) }}</div>
+                <a href="/abuela/cobros?recibo_id={{ ultimo_recibo_abuela.id }}" class="btn-editar" style="display: inline-block; margin-top: 5px;">📲 Ver detalle de cobros y WhatsApp</a>
             </div>
-            <div class="submenu" id="agua">
-                {% if session.usuario_admin %}
-                <a href="/recibo_agua" class="btn-sub">📄 Ingresar Recibo</a>
-                <a href="/lecturas_agua" class="btn-sub">💧 Ingresar Lecturas</a>
-                {% endif %}
-                <a href="/cobros_agua" class="btn-sub">💰 Ver Cobros</a>
-                <a href="/lecturas_agua_ver" class="btn-sub">📝 Ver Lecturas</a>
+            {% endif %}
+
+            <!-- INQUILINOS CASA ABUELA -->
+            <div class="lista" style="margin-top:30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin: 0;">🏢 Inquilinos Registrados (Distribución por Piso)</h2>
+                    <a href="/admin/apartamentos" class="btn-editar">✏️ Editar / Agregar</a>
+                </div>
+                <ul>
+                    {% for apto in apartamentos %}
+                        <li style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="background: rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 6px; font-size: 14px; margin-right: 8px;">{{ apto.piso or 'Piso' }}</span>
+                                <strong>{{ apto.nombre_inquilino }}</strong> 
+                                <span style="font-size: 15px; opacity: 0.8;">({{ apto.numero }})</span>
+                            </div>
+                            <div>
+                                <span style="background: rgba(52, 152, 219, 0.4); padding: 5px 12px; border-radius: 8px; font-size: 15px; font-weight: bold;">
+                                    👥 {{ apto.personas }} persona(s)
+                                </span>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
             </div>
 
-        </div>
+        {% else %}
+            <!-- PANEL ESTÁNDAR (MARLEN / DEMO) -->
+            <h1>🏠 CONTROL SERVICIOS CASA</h1>
 
-        <!-- BOTONES GENERALES -->
-        <div class="menu" style="margin-top:30px;">
-            <a href="/estadisticas" class="btn-menu">📊 Estadisticas</a>
-            <a href="/taller" class="btn-menu">🏭 Taller Pablo</a>
-        </div>
+            <div class="modulos">
 
-        <!-- APARTAMENTOS -->
-        <div class="lista" style="margin-top:30px;">
-            <h2>Apartamentos</h2>
-            <ul>
-                {% for apartamento in apartamentos %}
-                    <li>🏢 Apartamento {{ apartamento.numero }} — {{ apartamento.nombre_inquilino }}</li>
-                {% endfor %}
-            </ul>
-        </div>
+                <!-- LUZ -->
+                <div class="modulo" onclick="toggle('luz')">
+                    <span>💡 LUZ</span>
+                    <span class="flecha" id="flecha-luz">▼</span>
+                </div>
+                <div class="submenu" id="luz">
+                    {% if session.usuario_admin %}
+                    <a href="/recibo" class="btn-sub">📄 Ingresar Recibo</a>
+                    <a href="/lecturas" class="btn-sub">⚡ Ingresar Lecturas</a>
+                    {% endif %}
+                    <a href="/cobros" class="btn-sub">💰 Ver Cobros</a>
+                    <a href="/historial" class="btn-sub">📋 Historial</a>
+                    <a href="/lecturas_ver" class="btn-sub">📝 Ver Lecturas</a>
+                </div>
+
+                <!-- GAS -->
+                <div class="modulo" onclick="toggle('gas')">
+                    <span>🔥 GAS</span>
+                    <span class="flecha" id="flecha-gas">▼</span>
+                </div>
+                <div class="submenu" id="gas">
+                    {% if session.usuario_admin %}
+                    <a href="/recibo_gas" class="btn-sub">📄 Ingresar Recibo</a>
+                    <a href="/lecturas_gas" class="btn-sub">🔥 Ingresar Lecturas</a>
+                    {% endif %}
+                    <a href="/cobros_gas" class="btn-sub">💰 Ver Cobros</a>
+                    <a href="/lecturas_gas_ver" class="btn-sub">📝 Ver Lecturas</a>
+                </div>
+
+                <!-- AGUA -->
+                <div class="modulo" onclick="toggle('agua')">
+                    <span>💧 AGUA</span>
+                    <span class="flecha" id="flecha-agua">▼</span>
+                </div>
+                <div class="submenu" id="agua">
+                    {% if session.usuario_admin %}
+                    <a href="/recibo_agua" class="btn-sub">📄 Ingresar Recibo</a>
+                    <a href="/lecturas_agua" class="btn-sub">💧 Ingresar Lecturas</a>
+                    {% endif %}
+                    <a href="/cobros_agua" class="btn-sub">💰 Ver Cobros</a>
+                    <a href="/lecturas_agua_ver" class="btn-sub">📝 Ver Lecturas</a>
+                </div>
+
+            </div>
+
+            <!-- BOTONES GENERALES -->
+            <div class="menu" style="margin-top:30px;">
+                <a href="/estadisticas" class="btn-menu">📊 Estadisticas</a>
+                <a href="/taller" class="btn-menu">🏭 Taller Pablo</a>
+            </div>
+
+            <!-- APARTAMENTOS -->
+            <div class="lista" style="margin-top:30px;">
+                <h2>Apartamentos</h2>
+                <ul>
+                    {% for apartamento in apartamentos %}
+                        <li>🏢 Apartamento {{ apartamento.numero }} — {{ apartamento.nombre_inquilino }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
 
     </div>
 

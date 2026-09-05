@@ -13,12 +13,20 @@
         <div class="lista">
             <form method="POST">
                 <div class="campo">
-                    <label for="numero">Número de Apartamento</label>
+                    <label for="piso">Piso / Ubicación</label>
+                    <input type="text" id="piso" name="piso" value="{{ apartamento.piso or '' }}" placeholder="Ej: Primer Piso, Sótano...">
+                </div>
+                <div class="campo">
+                    <label for="numero">Número o Habitación</label>
                     <input type="text" id="numero" name="numero" value="{{ apartamento.numero }}" required>
                 </div>
                 <div class="campo">
                     <label for="nombre_inquilino">Nombre del Inquilino</label>
                     <input type="text" id="nombre_inquilino" name="nombre_inquilino" value="{{ apartamento.nombre_inquilino }}" required>
+                </div>
+                <div class="campo">
+                    <label for="personas">👥 Cantidad de Personas</label>
+                    <input type="number" id="personas" name="personas" min="1" value="{{ apartamento.personas or 1 }}" required>
                 </div>
                 <div class="campo">
                     <label for="telefono">Teléfono / Celular</label>

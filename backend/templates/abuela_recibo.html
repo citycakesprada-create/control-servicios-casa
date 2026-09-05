@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Ingresar Recibo - Casa Abuela</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .modo-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            justify-content: center;
+        }
+        .modo-btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .modo-btn.activo {
+            background: #f1c40f;
+            color: #2c3e50;
+            border-color: #f39c12;
+            transform: scale(1.05);
+        }
+        .resumen-cabeza {
+            background: rgba(241, 196, 15, 0.2);
+            border: 2px solid rgba(241, 196, 15, 0.5);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 18px;
+        }
+        .resumen-cabeza span {
+            font-size: 26px;
+            font-weight: bold;
+            color: #ffff99;
+        }
+    </style>
+</head>
+<body>
+    <div class="contenedor">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <a href="/" class="btn-editar">⬅️ Volver al Inicio</a>
+            <a href="/abuela/cobros" class="btn-editar">💰 Ver Últimos Cobros</a>
+        </div>
+
+        <h1>📄 Registrar Recibo — Casa Abuela</h1>
+
+        <div class="resumen-cabeza">
+            <div>👥 Inquilinos activos: <strong>{{ num_inquilinos }}</strong> &nbsp;|&nbsp; Total personas ("cabezas"): <strong>{{ total_personas }}</strong></div>
+            <div style="margin-top: 10px; font-size: 16px; opacity: 0.9;">
+                El sistema dividirá el valor total automáticamente entre las <strong>{{ total_personas }}</strong> personas.
+            </div>
+        </div>
+
+        <div class="lista">
+            <form action="/abuela/recibo" method="POST" id="formRecibo">
+                
+                <div class="campo">
+                    <label for="fecha">📅 Fecha de Facturación / Mes:</label>
+                    <input type="date" id="fecha" name="fecha" required>
+                </div>
+
+                <div class="campo">
+                    <label>⚙️ ¿Cómo deseas ingresar el cobro?</label>
+                    <div class="modo-selector">
+                        <button type="button" class="modo-btn activo" id="btnModoCombo" onclick="cambiarModo('combo')">
+                            📦 Desglosado (Luz, Agua y/o Gas)
+                        </button>
+                        <button type="button" class="modo-btn" id="btnModoDirecto" onclick="cambiarModo('directo')">
+                            💵 Valor Total Directo (Unificado)
+                        </button>
+                    </div>
+                </div>
+
+                <input type="hidden" name="tipo_recibo" id="tipo_recibo" value="Todos">
+
+                <!-- MODO DESGLOSADO -->
+                <div id="seccionDesglosada">
+                    <div class="campo">
+                        <label for="valor_luz">💡 Valor Recibo de Luz ($):</label>
+                        <input type="number" step="any" id="valor_luz" name="valor_luz" placeholder="0" oninput="calcularTotal()">
+                    </div>
+
+                    <div class="campo">
+                        <label for="valor_agua">💧 Valor Recibo de Agua ($):</label>
+                        <input type="number" step="any" id="valor_agua" name="valor_agua" placeholder="0" oninput="calcularTotal()">
+                    </div>
+
+                    <div class="campo">
+                        <label for="valor_gas">🔥 Valor Recibo de Gas ($):</label>
+                        <input type="number" step="any" id="valor_gas" name="valor_gas" placeholder="0" oninput="calcularTotal()">
+                    </div>
+                </div>
+
+                <!-- MODO DIRECTO -->
+                <div id="seccionDirecta" style="display: none;">
+                    <div class="campo">
+                        <label for="servicio_individual">Servicio a Cobrar:</label>
+                        <select id="servicio_individual" style="width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 16px; background: rgba(255,255,255,0.2); color: white;" onchange="actualizarServicio(this.value)">
+                            <option value="Todos" style="color: black;">Combo / Todos los servicios del mes</option>
+                            <option value="Luz" style="color: black;">💡 Solo Luz</option>
+                            <option value="Agua" style="color: black;">💧 Solo Agua</option>
+                            <option value="Gas" style="color: black;">🔥 Solo Gas</option>
+                        </select>
+                    </div>
+
+                    <div class="campo">
+                        <label for="valor_total_directo">💰 Valor Total del Recibo ($):</label>
+                        <input type="number" step="any" id="valor_total_directo" name="valor_total_directo" placeholder="Ej: 320000" oninput="calcularTotalDirecto()">
+                    </div>
+                </div>
+
+                <div class="campo">
+                    <label for="observaciones">📝 Observaciones / Nota (opcional):</label>
+                    <input type="text" id="observaciones" name="observaciones" placeholder="Ej: Recibos mes de septiembre">
+                </div>
+
+                <!-- PREVISUALIZACION CALCULO -->
+                <div class="info-recibo" style="background: rgba(46, 204, 113, 0.25); border: 2px solid rgba(46, 204, 113, 0.6); padding: 20px; border-radius: 12px;">
+                    <div style="font-size: 18px; margin-bottom: 5px;">Suma Total a Repartir: <strong id="lblTotal" style="color: #ffff99; font-size: 24px;">$0</strong></div>
+                    <div style="font-size: 16px;">Valor estimado por cabeza ({{ total_personas }} personas): <strong id="lblPorCabeza" style="color: #58d68d; font-size: 20px;">$0</strong></div>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button type="submit" style="background: #f1c40f; color: #2c3e50; font-size: 20px; padding: 16px 45px; border-radius: 12px; box-shadow: 0 4px 15px rgba(241, 196, 15, 0.4);">
+                        ⚡ Calcular y Generar Cobros
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const totalPersonas = {{ total_personas }} || 1;
+
+        // Poner fecha actual por defecto
+        document.getElementById('fecha').valueAsDate = new Date();
+
+        let modoActual = 'combo';
+
+        function cambiarModo(modo) {
+            modoActual = modo;
+            const btnCombo = document.getElementById('btnModoCombo');
+            const btnDirecto = document.getElementById('btnModoDirecto');
+            const secDesglosada = document.getElementById('seccionDesglosada');
+            const secDirecta = document.getElementById('seccionDirecta');
+
+            if (modo === 'combo') {
+                btnCombo.classList.add('activo');
+                btnDirecto.classList.remove('activo');
+                secDesglosada.style.display = 'block';
+                secDirecta.style.display = 'none';
+                document.getElementById('valor_total_directo').value = '';
+                document.getElementById('tipo_recibo').value = 'Todos';
+                calcularTotal();
+            } else {
+                btnDirecto.classList.add('activo');
+                btnCombo.classList.remove('activo');
+                secDesglosada.style.display = 'none';
+                secDirecta.style.display = 'block';
+                document.getElementById('valor_luz').value = '';
+                document.getElementById('valor_agua').value = '';
+                document.getElementById('valor_gas').value = '';
+                actualizarServicio(document.getElementById('servicio_individual').value);
+                calcularTotalDirecto();
+            }
+        }
+
+        function actualizarServicio(val) {
+            document.getElementById('tipo_recibo').value = val;
+        }
+
+        function calcularTotal() {
+            const luz = parseFloat(document.getElementById('valor_luz').value) || 0;
+            const agua = parseFloat(document.getElementById('valor_agua').value) || 0;
+            const gas = parseFloat(document.getElementById('valor_gas').value) || 0;
+            const total = luz + agua + gas;
+            const porCabeza = Math.round(total / totalPersonas);
+
+            document.getElementById('lblTotal').textContent = '$' + total.toLocaleString();
+            document.getElementById('lblPorCabeza').textContent = '$' + porCabeza.toLocaleString();
+        }
+
+        function calcularTotalDirecto() {
+            const total = parseFloat(document.getElementById('valor_total_directo').value) || 0;
+            const porCabeza = Math.round(total / totalPersonas);
+
+            document.getElementById('lblTotal').textContent = '$' + total.toLocaleString();
+            document.getElementById('lblPorCabeza').textContent = '$' + porCabeza.toLocaleString();
+        }
+    </script>
+</body>
+</html>
